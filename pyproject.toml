@@ -1,0 +1,17 @@
+[project]
+name = "library-skills"
+version = "0.0.1"
+description = "Library Agent Skills"
+readme = "README.md"
+authors = [
+    { name = "Sebastián Ramírez", email = "tiangolo@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+library-skills = "library_skills:main"
+
+[build-system]
+requires = ["uv_build>=0.9.11,<0.10.0"]
+build-backend = "uv_build"
