@@ -24,6 +24,7 @@ jobs:
         with:
           # To allow latest-changes to commit to the main branch
           token: ${{ secrets.LATEST_CHANGES }}
+          persist-credentials: false
       # Allow debugging with tmate
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@c0afd6f790e3a5564914980036ebf83216678101 # v3.23
