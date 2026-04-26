@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+coverage
+
+# Node / TypeScript
+node_modules/
+ts/dist/
