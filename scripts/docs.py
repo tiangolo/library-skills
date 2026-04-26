@@ -63,9 +63,7 @@ def verify_readme() -> None:
     generated_content = generate_readme_content()
     readme_content = readme_path.read_text("utf-8")
     if generated_content != readme_content:
-        typer.secho(
-            "README.md outdated from the latest index.md", color=typer.colors.RED
-        )
+        typer.secho("README.md outdated from the latest index.md")
         raise typer.Abort()
     typer.echo("Valid README ✅")
 
@@ -95,7 +93,7 @@ def build() -> None:
     """
     print("Building docs")
     subprocess.run(["zensical", "build"], check=True)
-    typer.secho("Successfully built docs", color=typer.colors.GREEN)
+    typer.secho("Successfully built docs")
 
 
 @app.command()
