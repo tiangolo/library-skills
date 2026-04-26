@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .scanner import _normalize_package_name
 
+# coverage handled in CI by running multiple Python versions
 if sys.version_info >= (3, 11):
     import tomllib
 else:
