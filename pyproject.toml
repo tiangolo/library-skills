@@ -37,6 +37,9 @@ minversion = "9.0"
 addopts = [
     "--strict-config",
     "--strict-markers",
+    "--cov=library_skills",
+    "--cov=tests",
+    "--cov-report=term-missing",
 ]
 strict_xfail = true
 filterwarnings = [

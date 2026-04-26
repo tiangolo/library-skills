@@ -13,6 +13,12 @@ def make_venv(path: Path) -> Path:
     return path
 
 
+def clear_python_env_vars(monkeypatch) -> None:
+    monkeypatch.delenv("UV_PROJECT_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    monkeypatch.delenv("CONDA_PREFIX", raising=False)
+
+
 def test_find_project_root_uses_nearest_python_project_marker(tmp_path):
     root = tmp_path / "repo"
     subproject = root / "packages" / "api"
@@ -34,6 +40,7 @@ def test_find_venv_prefers_uv_project_environment(monkeypatch, tmp_path):
     )
     uv_env = make_venv(project / ".custom-venv")
     dot_venv = make_venv(project / ".venv")
+    clear_python_env_vars(monkeypatch)
     monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", ".custom-venv")
     monkeypatch.setenv("VIRTUAL_ENV", str(dot_venv))
 
@@ -44,11 +51,24 @@ def test_find_venv_ignores_virtual_env_outside_project(monkeypatch, tmp_path):
     project = tmp_path / "project"
     project.mkdir()
     outside = make_venv(tmp_path / "tool-env")
-    monkeypatch.delenv("UV_PROJECT_ENVIRONMENT", raising=False)
+    clear_python_env_vars(monkeypatch)
     monkeypatch.setenv("VIRTUAL_ENV", str(outside))
-    monkeypatch.delenv("CONDA_PREFIX", raising=False)
 
     assert find_venv(project) is None
+
+
+def test_find_venv_uses_virtual_env_inside_project(monkeypatch, tmp_path):
+    project = tmp_path / "project"
+    nested = project / "src"
+    nested.mkdir(parents=True)
+    (project / "pyproject.toml").write_text(
+        "[project]\nname = 'demo'\n", encoding="utf-8"
+    )
+    virtual_env = make_venv(project / "env")
+    clear_python_env_vars(monkeypatch)
+    monkeypatch.setenv("VIRTUAL_ENV", str(virtual_env))
+
+    assert find_venv(nested) == virtual_env
 
 
 def test_find_venv_uses_conda_prefix_when_no_project_env(monkeypatch, tmp_path):
@@ -56,8 +76,7 @@ def test_find_venv_uses_conda_prefix_when_no_project_env(monkeypatch, tmp_path):
     project.mkdir()
     conda = tmp_path / "conda-env"
     conda.mkdir()
-    monkeypatch.delenv("UV_PROJECT_ENVIRONMENT", raising=False)
-    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    clear_python_env_vars(monkeypatch)
     monkeypatch.setenv("CONDA_PREFIX", str(conda))
 
     assert find_venv(project) == conda
@@ -74,3 +93,10 @@ def test_get_site_packages_dir_supports_windows_lib_and_lib64(tmp_path):
 
     assert get_site_packages_dir(windows_env) == windows_site
     assert get_site_packages_dir(linux_env) == linux_site
+
+
+def test_get_site_packages_dir_returns_none_without_site_packages(tmp_path):
+    venv = tmp_path / "venv"
+    (venv / "lib" / "python3.12").mkdir(parents=True)
+
+    assert get_site_packages_dir(venv) is None

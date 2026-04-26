@@ -34,3 +34,26 @@ def test_get_python_top_level_deps_returns_none_for_invalid_toml(tmp_path):
     (tmp_path / "pyproject.toml").write_text("[project\n", encoding="utf-8")
 
     assert get_python_top_level_deps(tmp_path) is None
+
+
+def test_get_python_top_level_deps_returns_empty_set_for_invalid_project_table(
+    tmp_path,
+):
+    (tmp_path / "pyproject.toml").write_text('project = "demo"\n', encoding="utf-8")
+
+    assert get_python_top_level_deps(tmp_path) == set()
+
+
+def test_get_python_top_level_deps_ignores_non_string_dependencies(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        """
+[project]
+dependencies = [
+    "rich>=13",
+    1,
+]
+""",
+        encoding="utf-8",
+    )
+
+    assert get_python_top_level_deps(tmp_path) == {"rich"}

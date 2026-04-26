@@ -6,6 +6,7 @@ from library_skills.installer import (
     CLAUDE_SKILLS_DIR,
     UNIVERSAL_SKILLS_DIR,
     InstallError,
+    _get_symlink_target,
     get_target_dirs,
     install_skill,
     list_installed_skills,
@@ -80,6 +81,67 @@ def test_install_skill_refuses_to_overwrite_non_symlink_directory(tmp_path):
 
     with pytest.raises(InstallError, match="Cannot overwrite non-symlink directory"):
         install_skill(skill, target_dir)
+
+
+def test_install_skill_refuses_to_overwrite_non_symlink_file(tmp_path):
+    skill = make_skill(tmp_path)
+    target_dir = tmp_path / ".agents" / "skills"
+    target_dir.mkdir(parents=True)
+    (target_dir / skill.name).write_text("not managed", encoding="utf-8")
+
+    with pytest.raises(InstallError, match="Cannot overwrite non-symlink file"):
+        install_skill(skill, target_dir)
+
+
+def test_install_skill_replaces_existing_symlink(tmp_path):
+    skill = make_skill(tmp_path)
+    target_dir = tmp_path / ".agents" / "skills"
+    old_target = tmp_path / "old"
+    old_target.mkdir()
+    target_dir.mkdir(parents=True)
+    dest = target_dir / skill.name
+    dest.symlink_to(old_target, target_is_directory=True)
+
+    install_skill(skill, target_dir)
+
+    assert dest.is_symlink()
+    assert dest.resolve() == skill.skill_dir.resolve()
+
+
+def test_get_symlink_target_falls_back_to_absolute_on_relpath_error(
+    tmp_path,
+    monkeypatch,
+):
+    source = tmp_path / "source"
+    dest = tmp_path / "dest" / "demo-skill"
+    source.mkdir()
+    dest.parent.mkdir()
+
+    def raise_value_error(_source: Path, *, start: Path) -> str:
+        raise ValueError
+
+    monkeypatch.setattr("library_skills.installer.os.path.relpath", raise_value_error)
+
+    assert _get_symlink_target(source=source, dest=dest) == source
+
+
+def test_list_installed_skills_handles_missing_target_and_directories(tmp_path):
+    target_dir = tmp_path / ".agents" / "skills"
+
+    assert list_installed_skills(target_dir) == []
+
+    target_dir.mkdir(parents=True)
+    (target_dir / "ignored.txt").write_text("ignored", encoding="utf-8")
+    hand_authored = target_dir / "hand-authored"
+    hand_authored.mkdir()
+
+    installed = list_installed_skills(target_dir)
+
+    assert len(installed) == 1
+    assert installed[0].name == "hand-authored"
+    assert installed[0].type == "directory"
+    assert installed[0].target is None
+    assert installed[0].has_skill_md is False
 
 
 def test_uninstall_skill_only_removes_symlinks(tmp_path):
