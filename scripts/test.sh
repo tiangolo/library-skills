@@ -3,4 +3,4 @@
 set -e
 set -x
 
-pytest  tests scripts/tests/ ${@}
+pytest tests ${@}

@@ -43,6 +43,12 @@ github-actions = [
 requires = ["uv_build>=0.9.11,<0.10.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+source-include = [
+    "scripts/test.sh",
+    "tests/**",
+]
+
 [tool.pytest]
 minversion = "9.0"
 addopts = [
