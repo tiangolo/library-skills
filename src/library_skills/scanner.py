@@ -4,7 +4,8 @@ import re
 from dataclasses import dataclass, field
 from email.parser import Parser
 from pathlib import Path, PurePosixPath
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 
 @dataclass(frozen=True)
@@ -210,7 +211,8 @@ def _read_editable_source_root(dist_info: Path) -> Path | None:
     if parsed.scheme != "file":
         return None
 
-    source_root = Path(unquote(parsed.path)).resolve()
+    # Windows file URLs use /C:/... paths; url2pathname converts them to C:\...
+    source_root = Path(url2pathname(parsed.path)).resolve()
     if source_root.is_dir():
         return source_root
     return None
