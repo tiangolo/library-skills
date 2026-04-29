@@ -1,0 +1,52 @@
+{
+  "name": "library-skills",
+  "version": "0.0.1",
+  "description": "Library Agent Skills",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./ts/dist/index.d.ts",
+        "default": "./ts/dist/index.js"
+      },
+      "require": {
+        "types": "./ts/dist/index.d.cts",
+        "default": "./ts/dist/index.cjs"
+      }
+    }
+  },
+  "main": "./ts/dist/index.cjs",
+  "module": "./ts/dist/index.js",
+  "types": "./ts/dist/index.d.ts",
+  "bin": {
+    "library-skills": "./ts/dist/cli.js"
+  },
+  "files": [
+    "ts/dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepublishOnly": "npm run build",
+    "test:ts": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "author": {
+    "name": "Sebastián Ramírez",
+    "email": "tiangolo@gmail.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.5"
+  },
+  "dependencies": {
+    "@inquirer/checkbox": "^5.1.4",
+    "commander": "^14.0.3",
+    "csv-parse": "^6.2.1",
+    "smol-toml": "^1.6.1"
+  }
+}
