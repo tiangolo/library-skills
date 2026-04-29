@@ -573,7 +573,9 @@ def test_display_path_prefers_project_relative_paths(tmp_path):
     inside.mkdir(parents=True)
     outside.mkdir()
 
-    assert cli._display_path(inside, project) == ".agents/skills/demo"
+    assert cli._display_path(inside, project) == str(
+        Path(".agents") / "skills" / "demo"
+    )
     assert cli._display_path(outside, project) == str(outside)
     assert cli._display_path(None, project) == ""
 
