@@ -324,7 +324,7 @@ function printInstalledSkillsTable(
 
 async function selectSkillsInteractive(skills: Skill[]): Promise<Skill[]> {
 	return checkbox<Skill>({
-		message: "Select skills to install:",
+		message: "Select skills to install (press Space to select, Enter to confirm):",
 		choices: skills.map((skill) => ({
 			name: `${skill.name} (${skill.packageName})`,
 			value: skill,
@@ -340,7 +340,7 @@ async function selectInstalledSkillsInteractive(
 		return [];
 	}
 	return checkbox<InstalledStatus>({
-		message: "Select skills to remove:",
+		message: "Select skills to remove (press Space to select, Enter to confirm):",
 		choices: removable.map((status) => ({
 			name: `${status.name} [${status.target.name}]`,
 			value: status,

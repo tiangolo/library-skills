@@ -181,7 +181,7 @@ def _top_level_skills(
 def _select_skills_interactive(skills: list[Skill]) -> list[Skill]:
     """Let the user interactively select which skills to install."""
     return _get_rich_toolkit().ask(
-        "Select skills to install:",
+        "Select skills to install (press Space to select, Enter to confirm):",
         options=[
             Option({"name": f"{skill.name} ({skill.package_name})", "value": skill})
             for skill in skills
@@ -318,7 +318,7 @@ def _select_installed_skills_interactive(
     if not removable:
         return []
     return _get_rich_toolkit().ask(
-        "Select skills to remove:",
+        "Select skills to remove (press Space to select, Enter to confirm):",
         options=[
             Option(
                 {
