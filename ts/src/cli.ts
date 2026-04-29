@@ -657,6 +657,7 @@ function exists(path: string): boolean {
 	}
 }
 
+/* v8 ignore next 9 -- direct executable entrypoint is exercised by the packaged CLI, not in-process tests. */
 if (
 	process.argv[1] &&
 	fileURLToPath(import.meta.url) === resolve(process.argv[1])
@@ -671,6 +672,7 @@ export const testing = {
 	filterInstallableSkills,
 	findCollisions,
 	getProjectContext,
+	installSelected,
 	installedStatuses,
 	listCommand,
 	scanCommand,

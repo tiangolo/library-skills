@@ -158,9 +158,6 @@ function scanDistributionRecords({
 	}) as string[][];
 
 	for (const row of rows) {
-		if (row.length === 0) {
-			continue;
-		}
 		const installedPath = row[0];
 		if (!isSkillFileRecord(installedPath)) {
 			continue;
@@ -298,6 +295,7 @@ function findSkillMarkdownFiles(root: string): string[] {
 			try {
 				stat = lstatSync(fullPath);
 			} catch {
+				/* v8 ignore next -- defensive against filesystem races during directory walks. */
 				continue;
 			}
 			if (stat.isSymbolicLink()) {
@@ -470,7 +468,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export const testing = {
+	findSkillMarkdownFiles,
 	isSkillFileRecord,
+	isSkillMarkdownPath,
+	realpathOrResolve,
 	readEditableSourceRoot,
 	scanEditableDirectUrl,
 };

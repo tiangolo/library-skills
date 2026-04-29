@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parse } from "smol-toml";
+import { parse, type TomlTable } from "smol-toml";
 import { normalizePackageName } from "./scanner.js";
 
 export function getPythonTopLevelDeps(projectRoot: string): Set<string> | null {
@@ -9,7 +9,7 @@ export function getPythonTopLevelDeps(projectRoot: string): Set<string> | null {
     return null;
   }
 
-  let data: unknown;
+  let data: TomlTable;
   try {
     data = parse(readFileSync(pyproject, "utf8"));
   } catch {
@@ -17,9 +17,6 @@ export function getPythonTopLevelDeps(projectRoot: string): Set<string> | null {
   }
 
   const deps = new Set<string>();
-  if (!isRecord(data)) {
-    return deps;
-  }
 
   const project = data["project"];
   if (!isRecord(project)) {
@@ -60,5 +57,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export const testing = {
-  extractDepsFromSpecs,
+	extractDepsFromSpecs,
+	isRecord,
 };

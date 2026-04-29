@@ -145,5 +145,8 @@ function isDirectory(path: string): boolean {
 }
 
 export const testing = {
-  getSymlinkTarget,
+	getSymlinkTarget,
+	isDirectory,
+	isSymlink,
+	resolveSymlink,
 };
