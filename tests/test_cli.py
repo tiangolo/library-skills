@@ -137,6 +137,8 @@ def test_scan_filters_to_top_level_dependencies_by_default(tmp_path, monkeypatch
     all_result = runner.invoke(app, ["scan", "--all"])
 
     assert result.exit_code == 0
+    assert "Target Python environment: .venv" in result.output
+    assert "Site-packages: .venv" in result.output
     assert "top-skill" in result.output
     assert "transitive-skill" not in result.output
     assert all_result.exit_code == 0
@@ -242,6 +244,8 @@ def test_list_installed_prints_installed_statuses(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert "up to date" in result.output
+    assert ".agents" in result.output
+    assert str(project / ".agents") not in result.output
 
 
 def test_install_all_copy_mode_installs_to_agents_and_claude(tmp_path, monkeypatch):
@@ -556,7 +560,22 @@ def test_install_selected_continues_after_install_error(tmp_path):
     target = cli.InstallTarget("universal", tmp_path / ".agents" / "skills")
     (target.path / skill.name).mkdir(parents=True)
 
-    assert cli._install_selected(skills=[skill], targets=[target]) == 0
+    assert (
+        cli._install_selected(skills=[skill], targets=[target], project_root=tmp_path)
+        == 0
+    )
+
+
+def test_display_path_prefers_project_relative_paths(tmp_path):
+    project = tmp_path / "project"
+    inside = project / ".agents" / "skills" / "demo"
+    outside = tmp_path / "outside"
+    inside.mkdir(parents=True)
+    outside.mkdir()
+
+    assert cli._display_path(inside, project) == ".agents/skills/demo"
+    assert cli._display_path(outside, project) == str(outside)
+    assert cli._display_path(None, project) == ""
 
 
 def test_main_module_invokes_cli_main():
