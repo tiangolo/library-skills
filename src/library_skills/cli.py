@@ -110,14 +110,30 @@ def _print_warnings(warnings: list[str]) -> None:
         console.print(f"[error]Warning:[/] {warning}")
 
 
+def _display_path(path: Path | None, project_root: Path) -> str:
+    if path is None:
+        return ""
+    absolute_path = path if path.is_absolute() else Path.cwd() / path
+    try:
+        return str(absolute_path.relative_to(project_root.resolve()))
+    except ValueError:
+        return str(path)
+
+
 def _print_context(context: ProjectContext) -> None:
     console.print(f"Project root: {context.project_root}")
     if context.target_environment:
-        console.print(f"Target Python environment: {context.target_environment}")
+        console.print(
+            f"Target Python environment: "
+            f"{_display_path(context.target_environment, context.project_root)}"
+        )
     else:
         console.print("Target Python environment: not found")
     if context.site_packages_dir:
-        console.print(f"Site-packages: {context.site_packages_dir}")
+        console.print(
+            f"Site-packages: "
+            f"{_display_path(context.site_packages_dir, context.project_root)}"
+        )
 
 
 def _print_skills_table(skills: list[Skill]) -> None:
@@ -266,7 +282,7 @@ def _installed_statuses(
     return statuses
 
 
-def _print_status_table(statuses: list[InstalledStatus]) -> None:
+def _print_status_table(statuses: list[InstalledStatus], project_root: Path) -> None:
     table = Table(show_header=True, header_style="bold", box=None)
     table.add_column("Target")
     table.add_column("Skill", style="bold")
@@ -278,18 +294,20 @@ def _print_status_table(statuses: list[InstalledStatus]) -> None:
             status.target.name,
             status.name,
             status.status,
-            str(status.path),
-            str(status.target_path or ""),
+            _display_path(status.path, project_root),
+            _display_path(status.target_path, project_root),
         )
     console.print(table)
 
 
-def _print_installed_skills_table(statuses: list[InstalledStatus]) -> None:
+def _print_installed_skills_table(
+    statuses: list[InstalledStatus], project_root: Path
+) -> None:
     installed = [status for status in statuses if status.type != "missing"]
     if not installed:
         console.print("No skills installed.")
         return
-    _print_status_table(installed)
+    _print_status_table(installed, project_root)
 
 
 def _select_installed_skills_interactive(
@@ -319,6 +337,7 @@ def _install_selected(
     *,
     skills: list[Skill],
     targets: list[InstallTarget],
+    project_root: Path,
     copy: bool = False,
 ) -> int:
     installed_count = 0
@@ -331,7 +350,8 @@ def _install_selected(
                 continue
             method = "Copied" if copy else "Symlinked"
             console.print(
-                f"{method}: [bold]{skill.name}[/bold] ({skill.package_name}) -> {dest}"
+                f"{method}: [bold]{skill.name}[/bold] ({skill.package_name}) -> "
+                f"{_display_path(dest, project_root)}"
             )
             installed_count += 1
     return installed_count
@@ -373,7 +393,7 @@ def _sync(
     ]
 
     if visible_statuses:
-        _print_status_table(visible_statuses)
+        _print_status_table(visible_statuses, context.project_root)
     else:
         console.print("No installed or discovered skills found.")
 
@@ -414,7 +434,9 @@ def _sync(
 
     if selected:
         console.print()
-        installed_count = _install_selected(skills=selected, targets=targets)
+        installed_count = _install_selected(
+            skills=selected, targets=targets, project_root=context.project_root
+        )
         console.print()
         console.print(f"Installed {installed_count} skill target(s).")
 
@@ -541,7 +563,7 @@ def list_cmd(
 
     _print_warnings(result.warnings)
     if installed:
-        _print_installed_skills_table(statuses)
+        _print_installed_skills_table(statuses, context.project_root)
     else:
         _print_skills_table(skills)
 
@@ -595,7 +617,9 @@ def install(
         console.print("No skills selected.")
         return
 
-    installed_count = _install_selected(skills=selected, targets=targets, copy=copy)
+    installed_count = _install_selected(
+        skills=selected, targets=targets, project_root=context.project_root, copy=copy
+    )
     console.print()
     console.print(f"Installed {installed_count} skill target(s).")
 

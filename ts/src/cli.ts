@@ -3,7 +3,7 @@
 import checkbox from "@inquirer/checkbox";
 import { Command } from "commander";
 import { statSync } from "node:fs";
-import { resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPythonTopLevelDeps } from "./deps.js";
 import {
@@ -118,13 +118,36 @@ function printWarnings(warnings: string[]): void {
 	}
 }
 
+function displayPath(path: string | null | undefined, projectRoot: string): string {
+	if (!path) {
+		return "";
+	}
+	const relativePath = relative(resolve(projectRoot), resolve(path));
+	if (relativePath === "") {
+		return ".";
+	}
+	if (!relativePath.startsWith("..") && !isAbsolute(relativePath)) {
+		return relativePath;
+	}
+	return path;
+}
+
 function printContext(context: ProjectContext): void {
 	console.log(`Project root: ${context.projectRoot}`);
 	console.log(
-		`Target Python environment: ${context.targetEnvironment ?? "not found"}`,
+		`Target Python environment: ${
+			context.targetEnvironment
+				? displayPath(context.targetEnvironment, context.projectRoot)
+				: "not found"
+		}`,
 	);
 	if (context.sitePackagesDir) {
-		console.log(`Site-packages: ${context.sitePackagesDir}`);
+		console.log(
+			`Site-packages: ${displayPath(
+				context.sitePackagesDir,
+				context.projectRoot,
+			)}`,
+		);
 	}
 }
 
@@ -133,7 +156,8 @@ function printSkills(skills: Skill[]): void {
 		console.log("No skills found in installed packages.");
 		return;
 	}
-	console.table(
+	printTable(
+		["Skill", "Package", "Version", "Description"],
 		skills.map((skill) => ({
 			Skill: skill.name,
 			Package: skill.packageName,
@@ -141,6 +165,25 @@ function printSkills(skills: Skill[]): void {
 			Description: skill.description,
 		})),
 	);
+}
+
+function printTable(
+	columns: string[],
+	rows: Array<Record<string, string>>,
+): void {
+	const widths = columns.map((column) =>
+		Math.max(column.length, ...rows.map((row) => row[column].length)),
+	);
+	const formatRow = (row: Record<string, string>) =>
+		columns
+			.map((column, index) => row[column].padEnd(widths[index]))
+			.join("  ");
+
+	console.log(formatRow(Object.fromEntries(columns.map((column) => [column, column]))));
+	console.log(widths.map((width) => "-".repeat(width)).join("  "));
+	for (const row of rows) {
+		console.log(formatRow(row));
+	}
 }
 
 function findCollisions(skills: Skill[]): Set<string> {
@@ -254,25 +297,29 @@ function installedStatuses({
 	return statuses;
 }
 
-function printStatusTable(statuses: InstalledStatus[]): void {
-	console.table(
+function printStatusTable(statuses: InstalledStatus[], projectRoot: string): void {
+	printTable(
+		["Target", "Skill", "Status", "Path", "Source"],
 		statuses.map((status) => ({
 			Target: status.target.name,
 			Skill: status.name,
 			Status: status.status,
-			Path: status.path,
-			Source: status.targetPath ?? "",
+			Path: displayPath(status.path, projectRoot),
+			Source: displayPath(status.targetPath, projectRoot),
 		})),
 	);
 }
 
-function printInstalledSkillsTable(statuses: InstalledStatus[]): void {
+function printInstalledSkillsTable(
+	statuses: InstalledStatus[],
+	projectRoot: string,
+): void {
 	const installed = statuses.filter((status) => status.type !== "missing");
 	if (installed.length === 0) {
 		console.log("No skills installed.");
 		return;
 	}
-	printStatusTable(installed);
+	printStatusTable(installed, projectRoot);
 }
 
 async function selectSkillsInteractive(skills: Skill[]): Promise<Skill[]> {
@@ -304,10 +351,12 @@ async function selectInstalledSkillsInteractive(
 function installSelected({
 	skills,
 	targets,
+	projectRoot,
 	copy = false,
 }: {
 	skills: Skill[];
 	targets: InstallTarget[];
+	projectRoot: string;
 	copy?: boolean;
 }): number {
 	let installedCount = 0;
@@ -317,7 +366,10 @@ function installSelected({
 				const dest = installSkill(skill, target.path, { copy });
 				const method = copy ? "Copied" : "Symlinked";
 				console.log(
-					`${method}: ${skill.name} (${skill.packageName}) -> ${dest}`,
+					`${method}: ${skill.name} (${skill.packageName}) -> ${displayPath(
+						dest,
+						projectRoot,
+					)}`,
 				);
 				installedCount++;
 			} catch (error) {
@@ -365,7 +417,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 	);
 
 	if (visibleStatuses.length > 0) {
-		printStatusTable(visibleStatuses);
+		printStatusTable(visibleStatuses, context.projectRoot);
 	} else {
 		console.log("No installed or discovered skills found.");
 	}
@@ -411,7 +463,11 @@ async function sync(options: GlobalOptions): Promise<void> {
 
 	if (selected.length > 0) {
 		console.log();
-		const installedCount = installSelected({ skills: selected, targets });
+		const installedCount = installSelected({
+			skills: selected,
+			targets,
+			projectRoot: context.projectRoot,
+		});
 		console.log();
 		console.log(`Installed ${installedCount} skill target(s).`);
 	}
@@ -480,7 +536,7 @@ function listCommand(options: ListOptions): void {
 
 	printWarnings(result.warnings);
 	if (options.installed) {
-		printInstalledSkillsTable(statuses);
+		printInstalledSkillsTable(statuses, context.projectRoot);
 	} else {
 		printSkills(skills);
 	}
@@ -517,6 +573,7 @@ async function installCommand(options: InstallOptions): Promise<void> {
 	const installedCount = installSelected({
 		skills: selected,
 		targets,
+		projectRoot: context.projectRoot,
 		copy: options.copy,
 	});
 	console.log();
@@ -678,4 +735,6 @@ export const testing = {
 	scanCommand,
 	sync,
 	topLevelSkills,
+	displayPath,
+	printTable,
 };

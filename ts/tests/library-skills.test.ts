@@ -513,15 +513,18 @@ describe("installer", () => {
 test("CLI scan defaults to top-level project dependencies", async () => {
   const project = writeProjectWithTopLevelAndTransitiveSkills();
   process.chdir(project);
-  vi.spyOn(console, "log").mockImplementation(() => undefined);
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
-  const table = vi.spyOn(console, "table").mockImplementation(() => undefined);
 
   await createProgram().parseAsync(["node", "library-skills", "scan"]);
 
-  expect(table).toHaveBeenCalledWith([
-    expect.objectContaining({ Skill: "top-skill", Package: "top-level-pkg" }),
-  ]);
+  expect(log).toHaveBeenCalledWith("Target Python environment: .venv");
+  expect(log).toHaveBeenCalledWith(
+    expect.stringMatching(/^Site-packages: \.venv[/\\]/),
+  );
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("Skill"));
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("top-skill"));
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("top-level-pkg"));
 });
 
 test("CLI installs all discovered skills with --yes --all", async () => {
@@ -597,15 +600,28 @@ test("CLI helpers filter skills and classify installed statuses", () => {
   expect(cliTesting.findCollisions([up, real, makeSkill({ name: "up", skillDir: up.skillDir })])).toEqual(
     new Set(["up"]),
   );
+  expect(cliTesting.displayPath(join(root, ".agents", "skills", "up"), root)).toBe(
+    join(".agents", "skills", "up"),
+  );
+  expect(cliTesting.displayPath(root, root)).toBe(".");
+  expect(cliTesting.displayPath(join(tempDir(), "outside"), root)).toMatch(/outside$/);
+  expect(cliTesting.displayPath(null, root)).toBe("");
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  cliTesting.printTable(["Name", "Value"], [{ Name: "demo", Value: "ok" }]);
+  expect(log.mock.calls.map((call) => call[0])).toEqual([
+    "Name  Value",
+    "----  -----",
+    "demo  ok   ",
+  ]);
 });
 
 test("CLI list and scan commands cover JSON, installed, warnings, and empty output", async () => {
   const project = writeProjectWithTopLevelAndTransitiveSkills();
   process.chdir(project);
-  const { log, error, table } = mockConsole();
+  const { log, error } = mockConsole();
 
   await main(["node", "library-skills", "scan", "--all"]);
-  expect(table).toHaveBeenCalled();
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("transitive-skill"));
 
   await createProgram().parseAsync(["node", "library-skills", "list", "--json", "--all"]);
   const json = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
@@ -623,14 +639,13 @@ test("CLI list and scan commands cover JSON, installed, warnings, and empty outp
   ]);
 
   await createProgram().parseAsync(["node", "library-skills", "list", "--installed"]);
-  expect(table).toHaveBeenCalledWith(
-    expect.arrayContaining([expect.objectContaining({ Skill: "top-skill" })]),
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("top-skill"));
+  expect(log).toHaveBeenCalledWith(
+    expect.stringContaining(join(".agents", "skills", "top-skill")),
   );
 
   await createProgram().parseAsync(["node", "library-skills", "list", "--all"]);
-  expect(table).toHaveBeenCalledWith(
-    expect.arrayContaining([expect.objectContaining({ Skill: "transitive-skill" })]),
-  );
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("transitive-skill"));
 
   const emptyInstalled = tempDir();
   process.chdir(emptyInstalled);
@@ -682,6 +697,7 @@ test("CLI install command covers interactive, copy, selected, and skipped instal
     cliTesting.installSelected({
       skills: [makeSkill({ name: "missing-source", skillDir: join(project, "missing") })],
       targets: [{ name: "universal", path: join(project, "other-skills") }],
+      projectRoot: project,
       copy: true,
     }),
   ).toThrow();
@@ -715,7 +731,7 @@ test("CLI remove command covers selected, interactive, and empty removals", asyn
 test("CLI sync covers check mode, interactive installs, and automatic drift repair", async () => {
   const project = writeProjectWithTopLevelAndTransitiveSkills();
   process.chdir(project);
-  const { log, table } = mockConsole();
+  const { log } = mockConsole();
 
   await cliTesting.sync({ all: true });
   expect(lstatSync(join(project, ".agents", "skills", "top-skill")).isSymbolicLink()).toBe(true);
@@ -743,7 +759,7 @@ test("CLI sync covers check mode, interactive installs, and automatic drift repa
 
   await cliTesting.sync({ yes: true, all: true });
   expect(existsSync(join(project, ".agents", "skills", "top-skill", "SKILL.md"))).toBe(true);
-  expect(table).toHaveBeenCalled();
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("top-skill"));
 
   const empty = tempDir();
   process.chdir(empty);
