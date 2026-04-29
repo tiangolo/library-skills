@@ -1,6 +1,6 @@
 name: Deploy Docs
 on:
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] trusted follow-up deploys artifacts from Build Docs only
     workflows:
       - Build Docs
     types:
