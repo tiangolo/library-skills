@@ -11,6 +11,7 @@
 
 ### Refactors
 
+* ♻️ Explain "spacebar" selects. PR [#18](https://github.com/tiangolo/library-skills/pull/18) by [@tiangolo](https://github.com/tiangolo).
 * ♻️ Display relative paths when relative to the project. PR [#16](https://github.com/tiangolo/library-skills/pull/16) by [@tiangolo](https://github.com/tiangolo).
 
 ### Internal
