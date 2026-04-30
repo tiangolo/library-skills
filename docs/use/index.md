@@ -77,9 +77,9 @@ $ npx library-skills --claude
 
 ## Other Installations
 
-The CLI program `library-skills` is designed so you can easily run it with `uvx` or `npx`, without even having to install it.
+The <abbr title="Command Line Interface">CLI</abbr> program `library-skills` is designed to make it work with `uvx` or `npx`.
 
-That way, it will run in its own environment, but it still checks and scans *your project's environment* for the libraries you have installed.
+That way, it will run in its own temporary environment, but will still check and scan *your project's environment* for the libraries you have installed.
 
 But in the end, it's just a Python or JavaScript CLI package that you can install and run in any other way.
 
@@ -98,12 +98,10 @@ $ bunx library-skills
 
 ## Python and Node.js
 
-The CLI is built in parallel in both Python and TypeScript, so you can use it for the ecosystem you prefer.
+The CLI is built in parallel in both Python and TypeScript, so you can use it from the ecosystem you prefer.
 
-In both cases, the CLI will scan *both* the Python and Node.js environments, if any.
+So, if you use Python, you can stay in Python, you don't even need Node.js installed.
 
-So, if you use Python, you can stay in Python, you don't even need Node.js installed to use it.
+And if you use Node.js, you can stay in Node.js, you don't even need Python installed.
 
-And if you use Node.js, you can stay in Node.js, you don't even need Python installed to use it.
-
-And if you are in a project that has both Python and Node.js dependencies, it will find the skills from both ecosystems.
+In both cases, it will scan *both* the Python and Node.js environments, if available.
