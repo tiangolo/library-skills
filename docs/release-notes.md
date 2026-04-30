@@ -38,6 +38,7 @@
 
 ### Internal
 
+* ⬆ Update coverage[toml] requirement from >=7.13 to >=7.13.5. PR [#34](https://github.com/tiangolo/library-skills/pull/34) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆️ Upgrade TypeScript and tsup configs. PR [#50](https://github.com/tiangolo/library-skills/pull/50) by [@tiangolo](https://github.com/tiangolo).
 * ⬆ Bump ty from 0.0.30 to 0.0.32. PR [#14](https://github.com/tiangolo/library-skills/pull/14) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump ruff from 0.15.10 to 0.15.11. PR [#13](https://github.com/tiangolo/library-skills/pull/13) by [@dependabot[bot]](https://github.com/apps/dependabot).
