@@ -6,6 +6,7 @@ import {
   readdirSync,
   readlinkSync,
   rmSync,
+  statSync,
   symlinkSync,
   unlinkSync,
 } from "node:fs";
@@ -90,7 +91,7 @@ export function uninstallSkill(skillName: string, targetDir: string): boolean {
 }
 
 export function listInstalledSkills(targetDir: string): InstalledSkill[] {
-  if (!existsSync(targetDir)) {
+  if (!isDirectory(targetDir)) {
     return [];
   }
 
@@ -138,7 +139,7 @@ function isSymlink(path: string): boolean {
 
 function isDirectory(path: string): boolean {
   try {
-    return lstatSync(path).isDirectory();
+    return statSync(path).isDirectory();
   } catch {
     return false;
   }

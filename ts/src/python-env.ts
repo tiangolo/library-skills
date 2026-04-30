@@ -1,14 +1,14 @@
-import { existsSync, readdirSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 
 export function findProjectRoot(cwd: string): string | null {
   for (const directory of ancestors(cwd)) {
     if (
-        existsSync(join(directory, "pyproject.toml")) ||
-        existsSync(join(directory, "uv.lock")) ||
-        existsSync(join(directory, ".venv", "pyvenv.cfg")) ||
-        existsSync(join(directory, "package.json")) ||
-        existsSync(join(directory, "node_modules"))
+        isFile(join(directory, "pyproject.toml")) ||
+        isFile(join(directory, "uv.lock")) ||
+        isFile(join(directory, ".venv", "pyvenv.cfg")) ||
+        isFile(join(directory, "package.json")) ||
+        isDirectory(join(directory, "node_modules"))
     ) {
       return directory;
     }
@@ -42,7 +42,7 @@ export function findVenv(cwd = process.cwd()): string | null {
   }
 
   const condaPrefix = process.env["CONDA_PREFIX"];
-  if (condaPrefix && existsSync(condaPrefix)) {
+  if (condaPrefix && isDirectory(condaPrefix)) {
     return condaPrefix;
   }
 
@@ -51,19 +51,19 @@ export function findVenv(cwd = process.cwd()): string | null {
 
 export function getSitePackagesDir(venvPath: string): string | null {
   const windowsSitePackages = join(venvPath, "Lib", "site-packages");
-  if (existsSync(windowsSitePackages)) {
+  if (isDirectory(windowsSitePackages)) {
     return windowsSitePackages;
   }
 
   for (const libName of ["lib", "lib64"]) {
     const libDir = join(venvPath, libName);
-    if (!existsSync(libDir)) {
+    if (!isDirectory(libDir)) {
       continue;
     }
 
     for (const child of readdirSync(libDir).sort().reverse()) {
       const sitePackages = join(libDir, child, "site-packages");
-      if (child.startsWith("python") && existsSync(sitePackages)) {
+      if (child.startsWith("python") && isDirectory(sitePackages)) {
         return sitePackages;
       }
     }
@@ -77,7 +77,7 @@ export const getSitePackages = getSitePackagesDir;
 export function findNodeModules(cwd = process.cwd()): string | null {
   for (const directory of ancestors(cwd)) {
     const nodeModules = join(directory, "node_modules");
-    if (existsSync(nodeModules)) {
+    if (isDirectory(nodeModules)) {
       return nodeModules;
     }
   }
@@ -85,7 +85,7 @@ export function findNodeModules(cwd = process.cwd()): string | null {
 }
 
 function isVenvDir(directory: string): boolean {
-  return existsSync(join(directory, "pyvenv.cfg"));
+  return isFile(join(directory, "pyvenv.cfg"));
 }
 
 function ancestors(start: string): string[] {
@@ -109,4 +109,20 @@ function isRelativeTo(path: string, parent: string): boolean {
     normalizedPath === normalizedParent ||
     normalizedPath.startsWith(`${normalizedParent}${sep}`)
   );
+}
+
+function isFile(path: string): boolean {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
 }

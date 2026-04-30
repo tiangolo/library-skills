@@ -534,6 +534,13 @@ test("resolves project virtualenvs and site-packages", () => {
   mkdirSync(join(nodeProject, "node_modules"), { recursive: true });
   expect(findNodeModules(nodeNested)).toBe(join(nodeProject, "node_modules"));
   expect(findNodeModules(tempDir())).toBeNull();
+
+  const fileMarkerProject = tempDir();
+  const fileMarkerNested = join(fileMarkerProject, "src");
+  mkdirSync(fileMarkerNested, { recursive: true });
+  writeFileSync(join(fileMarkerProject, "node_modules"), "not a directory");
+  expect(findProjectRoot(fileMarkerNested)).toBeNull();
+  expect(findNodeModules(fileMarkerNested)).toBeNull();
 });
 
 test("handles alternate and missing Python environment discovery paths", () => {
@@ -565,9 +572,19 @@ test("handles alternate and missing Python environment discovery paths", () => {
   process.env = { ...originalEnv, CONDA_PREFIX: conda };
   expect(findVenv(project)).toBe(conda);
 
+  const condaFile = join(tempDir(), "conda-file");
+  writeFileSync(condaFile, "not a directory");
+  process.env = { ...originalEnv, CONDA_PREFIX: condaFile };
+  expect(findVenv(project)).toBeNull();
+
   const noSitePackages = join(project, "no-site-packages");
   mkdirSync(join(noSitePackages, "lib", "python3.11"), { recursive: true });
   expect(getSitePackagesDir(noSitePackages)).toBeNull();
+
+  const fileSitePackages = join(project, "file-site-packages");
+  mkdirSync(join(fileSitePackages, "Lib"), { recursive: true });
+  writeFileSync(join(fileSitePackages, "Lib", "site-packages"), "not a directory");
+  expect(getSitePackagesDir(fileSitePackages)).toBeNull();
 
   expect(getSitePackagesDir(tempDir())).toBeNull();
 });
@@ -638,6 +655,10 @@ describe("installer", () => {
     unlinkSync(join(targetDir, "agent"));
     writeFileSync(join(targetDir, "ignored.txt"), "");
     expect(listInstalledSkills(targetDir)).toEqual([]);
+
+    const targetFile = join(tempDir(), "skills-file");
+    writeFileSync(targetFile, "not a directory");
+    expect(listInstalledSkills(targetFile)).toEqual([]);
 
     execFileSync("mkfifo", [join(targetDir, "agent")]);
     expect(() => installSkill(skill, targetDir)).toThrow();
@@ -779,13 +800,14 @@ test("CLI helpers filter skills and classify installed statuses", () => {
 test("CLI list and scan commands cover JSON, installed, warnings, and empty output", async () => {
   const project = writeProjectWithTopLevelAndTransitiveSkills();
   process.chdir(project);
-  const { log, error } = mockConsole();
+  const { log } = mockConsole();
 
   await main(["node", "library-skills", "scan", "--all"]);
   expect(log).toHaveBeenCalledWith(expect.stringContaining("transitive-skill"));
 
   await createProgram().parseAsync(["node", "library-skills", "list", "--json", "--all"]);
   const json = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+  expect(json.project_root).toBe(project);
   expect(json.skills.map((skill: { name: string }) => skill.name)).toEqual([
     "top-skill",
     "transitive-skill",
@@ -818,11 +840,11 @@ test("CLI list and scan commands cover JSON, installed, warnings, and empty outp
   rmSync(join(project, ".venv"), { recursive: true, force: true });
   await createProgram().parseAsync(["node", "library-skills", "list", "--json"]);
   const noEnvJson = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
-  expect(noEnvJson.targetEnvironment).toBe("");
-  expect(noEnvJson.nodeModules).toBe("");
+  expect(noEnvJson.target_environment).toBe("");
+  expect(noEnvJson.node_modules).toBe("");
 
   await createProgram().parseAsync(["node", "library-skills", "scan"]);
-  expect(error).toHaveBeenCalledWith(
+  expect(log).toHaveBeenCalledWith(
     expect.stringContaining(
       "No target Python environment with site-packages or node_modules was found.",
     ),
@@ -833,7 +855,7 @@ test("CLI list and scan commands cover JSON, installed, warnings, and empty outp
 test("CLI install command covers interactive, copy, selected, and skipped installs", async () => {
   const project = writeProjectWithTopLevelAndTransitiveSkills();
   process.chdir(project);
-  const { log, error } = mockConsole();
+  const { log } = mockConsole();
 
   vi.mocked(checkbox).mockResolvedValueOnce([]);
   await createProgram().parseAsync(["node", "library-skills", "install"]);
@@ -844,7 +866,7 @@ test("CLI install command covers interactive, copy, selected, and skipped instal
     "library-skills",
     "install",
     "--yes",
-    "--skill",
+    "-s",
     "top-skill",
     "--skill",
     "transitive-skill",
@@ -855,7 +877,7 @@ test("CLI install command covers interactive, copy, selected, and skipped instal
   expect(lstatSync(join(project, ".claude", "skills", "transitive-skill")).isDirectory()).toBe(true);
 
   await createProgram().parseAsync(["node", "library-skills", "install", "--yes", "--all"]);
-  expect(error).toHaveBeenCalledWith(expect.stringContaining("Skipped top-skill"));
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("Skipped top-skill"));
 
   expect(() =>
     cliTesting.installSelected({
