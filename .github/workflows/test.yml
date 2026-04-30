@@ -27,7 +27,8 @@ jobs:
       pull-requests: read
     # Set job outputs to values from filter step
     outputs:
-      src: ${{ steps.filter.outputs.src }}
+      python: ${{ steps.filter.outputs.python }}
+      typescript: ${{ steps.filter.outputs.typescript }}
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
@@ -38,25 +39,27 @@ jobs:
       id: filter
       with:
         filters: |
-          src:
+          python:
             - .github/workflows/test.yml
             - src/**
             - scripts/**
             - tests/**
+            - .python-version
+            - pyproject.toml
+            - uv.lock
+          typescript:
+            - .github/workflows/test.yml
             - ts/**
             - package.json
             - package-lock.json
             - tsconfig.json
             - tsup.config.ts
             - vitest.config.ts
-            - .python-version
-            - pyproject.toml
-            - uv.lock
 
   test-typescript:
     needs:
       - changes
-    if: needs.changes.outputs.src == 'true' || github.ref == 'refs/heads/main'
+    if: needs.changes.outputs.typescript == 'true' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -82,10 +85,10 @@ jobs:
       - name: Build
         run: npm run build
 
-  test:
+  test-python:
     needs:
       - changes
-    if: needs.changes.outputs.src == 'true' || github.ref == 'refs/heads/main'
+    if: needs.changes.outputs.python == 'true' || github.ref == 'refs/heads/main'
     strategy:
       matrix:
         os: [ windows-latest, macos-latest ]
@@ -99,9 +102,6 @@ jobs:
           - os: windows-latest
             python-version: "3.12"
             uv-resolution: lowest-direct
-          - os: ubuntu-latest
-            python-version: "3.13"
-            uv-resolution: highest
           - os: ubuntu-latest
             python-version: "3.13"
             uv-resolution: highest
@@ -155,7 +155,7 @@ jobs:
 
   coverage-combine:
     needs:
-      - test
+      - test-python
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -213,4 +213,4 @@ jobs:
         uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
         with:
           jobs: ${{ toJSON(needs) }}
-          allowed-skips: coverage-combine,test,test-typescript
+          allowed-skips: coverage-combine,test-python,test-typescript
