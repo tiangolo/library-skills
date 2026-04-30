@@ -78,6 +78,7 @@ def scan_python_distributions(site_packages: Path) -> ScanResult:
 def scan_node_packages(node_modules: Path) -> ScanResult:
     """Scan Node.js packages in node_modules for bundled skills."""
     result = ScanResult()
+    seen_skill_dirs: set[Path] = set()
 
     if not node_modules.is_dir():
         result.warnings.append(f"node_modules directory not found: {node_modules}")
@@ -91,6 +92,10 @@ def scan_node_packages(node_modules: Path) -> ScanResult:
 
         for skill_md in sorted(package_root.glob(".agents/skills/*/SKILL.md")):
             skill_dir = skill_md.parent.resolve()
+            if skill_dir in seen_skill_dirs:
+                continue
+            seen_skill_dirs.add(skill_dir)
+
             skill, warning = _load_skill(
                 skill_dir=skill_dir,
                 skill_md=skill_md.resolve(),
