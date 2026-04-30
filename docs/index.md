@@ -3,7 +3,10 @@
 </style>
 
 <p align="center">
-  <a href="https://library-skills.io"><img src="https://library-skills.io/img/logo-margin/logo-margin-vector.svg" alt="Library Skills"></a>
+  <a href="https://library-skills.io"><img src="https://library-skills.io/img/logo-margin/logo-margin-vector.svg#only-light" alt="Library Skills"></a>
+<!-- only-mkdocs -->
+  <a href="https://library-skills.io"><img src="img/logo-margin/logo-margin-white-vector.svg#only-dark" alt="Library Skills"></a>
+<!-- /only-mkdocs -->
 </p>
 <p align="center">
     <em>Library Skills, AI Agents using libraries, as intended, always up to date.</em>
