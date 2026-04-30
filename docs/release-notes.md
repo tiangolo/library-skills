@@ -29,6 +29,7 @@
 
 ### Internal
 
+* 👷 Separate package publish for Python and npm, check versions. PR [#41](https://github.com/tiangolo/library-skills/pull/41) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Refactor CI, separate Python and TypeScript. PR [#39](https://github.com/tiangolo/library-skills/pull/39) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Update workflows with zizmor. PR [#31](https://github.com/tiangolo/library-skills/pull/31) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Add CI publishing for TypeScript. PR [#30](https://github.com/tiangolo/library-skills/pull/30) by [@tiangolo](https://github.com/tiangolo).
