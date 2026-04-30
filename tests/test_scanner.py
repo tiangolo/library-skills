@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+import library_skills.scanner as scanner
 from library_skills.scanner import (
     _is_relative_to,
     _read_editable_source_root,
@@ -104,6 +105,26 @@ def test_scan_node_packages_discovers_package_skills(tmp_path):
     assert skill.package_version == "2.0.0"
     assert skill.path == skill_md.resolve()
     assert skill.skill_dir == skill_md.parent.resolve()
+
+
+def test_scan_node_packages_deduplicates_resolved_skill_dirs(tmp_path, monkeypatch):
+    node_modules = tmp_path / "node_modules"
+    skill_md = write_node_package(
+        node_modules,
+        "demo-pkg",
+        skill_name="node-skill",
+    )
+    package_root = skill_md.parents[3]
+    monkeypatch.setattr(
+        scanner,
+        "_iter_node_package_roots",
+        lambda _node_modules: [package_root, package_root],
+    )
+
+    result = scan_node_packages(node_modules)
+
+    assert result.warnings == []
+    assert [skill.name for skill in result.skills] == ["node-skill"]
 
 
 def test_scan_node_packages_warns_for_missing_or_invalid_metadata(tmp_path):
