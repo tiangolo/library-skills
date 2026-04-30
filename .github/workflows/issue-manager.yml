@@ -18,16 +18,12 @@ permissions: {}
 
 jobs:
   issue-manager:
-    if: github.repository_owner == 'fastapi'
+    if: github.repository_owner == 'tiangolo'
     runs-on: ubuntu-latest
     permissions:
       issues: write
       pull-requests: write
     steps:
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
       - uses: tiangolo/issue-manager@2fb3484ec9279485df8659e8ec73de262431737d # 0.6.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
