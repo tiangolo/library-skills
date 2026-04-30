@@ -10,6 +10,7 @@
 
 ### Internal
 
+* 🙈 Udpate .gitignore, add TypeScript files. PR [#10](https://github.com/tiangolo/library-skills/pull/10) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Update workfows, sanitize with Zizmor. PR [#9](https://github.com/tiangolo/library-skills/pull/9) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Update CI tests. PR [#8](https://github.com/tiangolo/library-skills/pull/8) by [@tiangolo](https://github.com/tiangolo).
 * ♻️ Update internal scripts to pass ty type checks. PR [#7](https://github.com/tiangolo/library-skills/pull/7) by [@tiangolo](https://github.com/tiangolo).
