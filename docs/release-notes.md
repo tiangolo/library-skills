@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.2 (2026-04-30)
+
 ### Features
 
 * ✨ Add support for scan --json. PR [#44](https://github.com/tiangolo/library-skills/pull/44) by [@tiangolo](https://github.com/tiangolo).
