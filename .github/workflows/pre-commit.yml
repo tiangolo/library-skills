@@ -10,6 +10,8 @@ env:
   # Forks and Dependabot don't have access to secrets
   HAS_SECRETS: ${{ secrets.PRE_COMMIT != '' }}
 
+permissions: {}
+
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
