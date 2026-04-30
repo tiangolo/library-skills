@@ -14,8 +14,12 @@
 </a>
 <a href="https://coverage-badge.samuelcolvin.workers.dev/redirect/tiangolo/library-skills">
     <img src="https://coverage-badge.samuelcolvin.workers.dev/tiangolo/library-skills.svg" alt="Coverage">
+</a>
 <a href="https://pypi.org/project/library-skills">
-    <img src="https://img.shields.io/pypi/v/library-skills?color=%2334D058&label=pypi%20package" alt="Package version">
+    <img src="https://img.shields.io/pypi/v/library-skills?color=%2334D058&label=pypi%20package" alt="Python package version">
+</a>
+<a href="https://www.npmjs.com/package/library-skills">
+    <img src="https://img.shields.io/npm/v/library-skills?color=%2334D058&label=npm%20package" alt="npm package version">
 </a>
 </p>
 
