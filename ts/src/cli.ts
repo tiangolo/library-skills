@@ -132,7 +132,7 @@ function topLevelSkills({
 
 function printWarnings(warnings: string[]): void {
 	for (const warning of warnings) {
-		console.error(`Warning: ${warning}`);
+		console.log(`Warning: ${warning}`);
 	}
 }
 
@@ -232,7 +232,7 @@ function filterInstallableSkills({
 }): Skill[] {
 	const collisions = findCollisions(skills);
 	if (collisions.size > 0) {
-		console.error(
+		console.log(
 			`Skipping colliding skill names: ${[...collisions].sort().join(", ")}`,
 		);
 	}
@@ -397,7 +397,7 @@ function installSelected({
 				installedCount++;
 			} catch (error) {
 				if (error instanceof InstallError) {
-					console.error(`Skipped ${skill.name}: ${error.message}`);
+					console.log(`Skipped ${skill.name}: ${error.message}`);
 				} else {
 					throw error;
 				}
@@ -530,9 +530,9 @@ function listCommand(options: ListOptions): void {
 		console.log(
 			JSON.stringify(
 				{
-					projectRoot: context.projectRoot,
-					targetEnvironment: context.targetEnvironment ?? "",
-					nodeModules: context.nodeModulesDir ?? "",
+					project_root: context.projectRoot,
+					target_environment: context.targetEnvironment ?? "",
+					node_modules: context.nodeModulesDir ?? "",
 					skills: skills.map((skill) => ({
 						name: skill.name,
 						description: skill.description,
@@ -651,7 +651,7 @@ export function createProgram(): Command {
 		.option("--check", "Validate only; exit 1 if installs drift")
 		.option("--all", "Install all newly discovered unmanaged skills")
 		.option(
-			"--skill <name>",
+			"-s, --skill <name>",
 			"Install a specific discovered skill by name",
 			collect,
 			[],
@@ -689,7 +689,7 @@ export function createProgram(): Command {
 		.option("-y, --yes", "Skip interactive selection")
 		.option("--all", "Install all newly discovered unmanaged skills")
 		.option(
-			"--skill <name>",
+			"-s, --skill <name>",
 			"Install a specific discovered skill by name",
 			collect,
 			[],
