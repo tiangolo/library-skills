@@ -13,3 +13,6 @@ coverage
 # Node / TypeScript
 node_modules/
 ts/dist/
+
+# Docs
+site/
