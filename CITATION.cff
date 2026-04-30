@@ -1,0 +1,21 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Library Skills
+message: >-
+  Library Skills, AI Agents using libraries as intended, always up to date.
+type: software
+authors:
+  - given-names: Sebastián
+    family-names: Ramírez
+    email: tiangolo@gmail.com
+identifiers:
+repository-code: 'https://github.com/tiangolo/library-skills'
+url: 'https://library-skills.io'
+abstract: >-
+  Library Skills, AI Agents using libraries as intended, always up to date.
+keywords:
+  - agents
+  - skills
+license: MIT
