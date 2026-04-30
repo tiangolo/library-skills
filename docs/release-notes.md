@@ -6,6 +6,7 @@
 
 ### Features
 
+* ✨ Add support for scan --json. PR [#44](https://github.com/tiangolo/library-skills/pull/44) by [@tiangolo](https://github.com/tiangolo).
 * ✨ Add support for scanning library skills in node_modules. PR [#20](https://github.com/tiangolo/library-skills/pull/20) by [@tiangolo](https://github.com/tiangolo).
 * ✨ Add TypeScript implementation. PR [#15](https://github.com/tiangolo/library-skills/pull/15) by [@tiangolo](https://github.com/tiangolo).
 * ✨ Implement Library Agent Skills in Python. PR [#2](https://github.com/tiangolo/library-skills/pull/2) by [@tiangolo](https://github.com/tiangolo).
