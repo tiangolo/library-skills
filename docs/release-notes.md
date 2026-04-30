@@ -21,6 +21,7 @@
 
 ### Upgrades
 
+* ⬆ Bump typer from 0.24.1 to 0.24.2. PR [#33](https://github.com/tiangolo/library-skills/pull/33) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Update uv-build requirement from <0.10.0,>=0.9.11 to >=0.11.7,<0.12.0. PR [#3](https://github.com/tiangolo/library-skills/pull/3) by [@dependabot[bot]](https://github.com/apps/dependabot).
 
 ### Docs
