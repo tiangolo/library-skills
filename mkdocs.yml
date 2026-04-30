@@ -63,6 +63,7 @@ nav:
   - About:
     - about/index.md
     - contributing.md
+  - reference.md
   - release-notes.md
 
 markdown_extensions:
