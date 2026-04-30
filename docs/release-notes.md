@@ -10,6 +10,7 @@
 
 ### Internal
 
+* 👷 Update CI tests. PR [#8](https://github.com/tiangolo/library-skills/pull/8) by [@tiangolo](https://github.com/tiangolo).
 * ♻️ Update internal scripts to pass ty type checks. PR [#7](https://github.com/tiangolo/library-skills/pull/7) by [@tiangolo](https://github.com/tiangolo).
 * 🔧 Add pre-commit config. PR [#6](https://github.com/tiangolo/library-skills/pull/6) by [@tiangolo](https://github.com/tiangolo).
 * 🔨 Add scripts. PR [#5](https://github.com/tiangolo/library-skills/pull/5) by [@tiangolo](https://github.com/tiangolo).
