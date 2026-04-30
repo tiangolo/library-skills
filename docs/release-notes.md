@@ -19,6 +19,10 @@
 * ♻️ Explain "spacebar" selects. PR [#18](https://github.com/tiangolo/library-skills/pull/18) by [@tiangolo](https://github.com/tiangolo).
 * ♻️ Display relative paths when relative to the project. PR [#16](https://github.com/tiangolo/library-skills/pull/16) by [@tiangolo](https://github.com/tiangolo).
 
+### Upgrades
+
+* ⬆ Update uv-build requirement from <0.10.0,>=0.9.11 to >=0.11.7,<0.12.0. PR [#3](https://github.com/tiangolo/library-skills/pull/3) by [@dependabot[bot]](https://github.com/apps/dependabot).
+
 ### Docs
 
 * 📝 Add docs for JSON output. PR [#45](https://github.com/tiangolo/library-skills/pull/45) by [@tiangolo](https://github.com/tiangolo).
