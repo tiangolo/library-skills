@@ -1,5 +1,6 @@
 <p align="center">
-  <a href="https://library-skills.io"><img src="https://library-skills.io/img/logo-margin/logo-margin-vector.svg" alt="Library Skills"></a>
+  <a href="https://library-skills.io"><img src="https://library-skills.io/img/logo-margin/logo-margin-vector.svg#only-light" alt="Library Skills"></a>
+
 </p>
 <p align="center">
     <em>Library Skills, AI Agents using libraries, as intended, always up to date.</em>
