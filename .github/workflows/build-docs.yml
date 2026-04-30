@@ -30,7 +30,6 @@ jobs:
       with:
         filters: |
           docs:
-            - README.md
             - docs/**
             - docs_src/**
             - pyproject.toml
