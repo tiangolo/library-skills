@@ -21,6 +21,7 @@
 
 ### Docs
 
+* 📝 Add docs for JSON output. PR [#45](https://github.com/tiangolo/library-skills/pull/45) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Add badge for npm in docs. PR [#40](https://github.com/tiangolo/library-skills/pull/40) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Add dark-mode logo. PR [#37](https://github.com/tiangolo/library-skills/pull/37) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Add CLI reference docs. PR [#36](https://github.com/tiangolo/library-skills/pull/36) by [@tiangolo](https://github.com/tiangolo).
