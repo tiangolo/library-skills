@@ -17,6 +17,7 @@
 
 ### Docs
 
+* 📝 Add docs. PR [#26](https://github.com/tiangolo/library-skills/pull/26) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Add docs for contributing and security. PR [#21](https://github.com/tiangolo/library-skills/pull/21) by [@tiangolo](https://github.com/tiangolo).
 
 ### Internal
