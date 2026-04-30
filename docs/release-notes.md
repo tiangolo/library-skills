@@ -33,6 +33,7 @@
 
 ### Internal
 
+* 👷 Tweak CI filters. PR [#47](https://github.com/tiangolo/library-skills/pull/47) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Update and simplify workflows. PR [#46](https://github.com/tiangolo/library-skills/pull/46) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Separate package publish for Python and npm, check versions. PR [#41](https://github.com/tiangolo/library-skills/pull/41) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Refactor CI, separate Python and TypeScript. PR [#39](https://github.com/tiangolo/library-skills/pull/39) by [@tiangolo](https://github.com/tiangolo).
