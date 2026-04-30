@@ -42,6 +42,7 @@ $ library-skills scan [OPTIONS]
 
 **Options**:
 
+* `--json`: Output as JSON
 * `--all`: Include skills from transitive dependencies
 * `--help`: Show this message and exit.
 

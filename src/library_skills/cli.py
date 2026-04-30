@@ -200,6 +200,27 @@ def _top_level_skills(
     ]
 
 
+def _scan_json_payload(
+    *, context: ProjectContext, skills: list[Skill], result: ScanResult
+) -> dict[str, object]:
+    return {
+        "project_root": str(context.project_root),
+        "target_environment": str(context.target_environment or ""),
+        "node_modules": str(context.node_modules_dir or ""),
+        "skills": [
+            {
+                "name": skill.name,
+                "description": skill.description,
+                "package": skill.package_name,
+                "version": skill.package_version,
+                "path": str(skill.skill_dir),
+            }
+            for skill in skills
+        ],
+        "warnings": result.warnings,
+    }
+
+
 def _select_skills_interactive(skills: list[Skill]) -> list[Skill]:
     """Let the user interactively select which skills to install."""
     return _get_rich_toolkit().ask(
@@ -503,6 +524,7 @@ def callback(
 
 @app.command()
 def scan(
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
     include_all: Annotated[
         bool,
         typer.Option("--all", help="Include skills from transitive dependencies"),
@@ -516,6 +538,11 @@ def scan(
         skills=result.skills,
         include_all=include_all,
     )
+    if json_output:
+        payload = _scan_json_payload(context=context, skills=skills, result=result)
+        print(json.dumps(payload, indent=2))
+        return
+
     _print_context(context)
     console.print()
     _print_warnings(result.warnings)
@@ -554,34 +581,23 @@ def list_cmd(
     statuses = _installed_statuses(targets=targets, skills=result.skills)
 
     if json_output:
-        payload = {
-            "project_root": str(context.project_root),
-            "target_environment": str(context.target_environment or ""),
-            "node_modules": str(context.node_modules_dir or ""),
-            "skills": [
-                {
-                    "name": skill.name,
-                    "description": skill.description,
-                    "package": skill.package_name,
-                    "version": skill.package_version,
-                    "path": str(skill.skill_dir),
-                }
-                for skill in skills
-            ],
-            "installed": [
-                {
-                    "target": status.target.name,
-                    "name": status.name,
-                    "status": status.status,
-                    "path": str(status.path),
-                    "source": str(status.target_path or ""),
-                }
-                for status in statuses
-                if status.type != "missing"
-            ],
-            "warnings": result.warnings,
-        }
-        console.print(json.dumps(payload, indent=2))
+        payload = _scan_json_payload(context=context, skills=skills, result=result)
+        payload.update(
+            {
+                "installed": [
+                    {
+                        "target": status.target.name,
+                        "name": status.name,
+                        "status": status.status,
+                        "path": str(status.path),
+                        "source": str(status.target_path or ""),
+                    }
+                    for status in statuses
+                    if status.type != "missing"
+                ],
+            }
+        )
+        print(json.dumps(payload, indent=2))
         return
 
     _print_warnings(result.warnings)
