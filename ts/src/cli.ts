@@ -76,6 +76,11 @@ interface ListOptions {
 	all?: boolean;
 }
 
+interface ScanOptions {
+	all?: boolean;
+	json?: boolean;
+}
+
 function getProjectContext(cwd = process.cwd()): ProjectContext {
 	const projectRoot = findProjectRoot(cwd) ?? cwd;
 	const targetEnvironment = findVenv(cwd);
@@ -190,6 +195,30 @@ function printSkills(skills: Skill[]): void {
 			Description: skill.description,
 		})),
 	);
+}
+
+function scanJsonPayload({
+	context,
+	skills,
+	result,
+}: {
+	context: ProjectContext;
+	skills: Skill[];
+	result: ScanResult;
+}): Record<string, unknown> {
+	return {
+		project_root: context.projectRoot,
+		target_environment: context.targetEnvironment ?? "",
+		node_modules: context.nodeModulesDir ?? "",
+		skills: skills.map((skill) => ({
+			name: skill.name,
+			description: skill.description,
+			package: skill.packageName,
+			version: skill.packageVersion,
+			path: skill.skillDir,
+		})),
+		warnings: result.warnings,
+	};
 }
 
 function printTable(
@@ -498,7 +527,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 	}
 }
 
-function scanCommand(options: { all?: boolean }): void {
+function scanCommand(options: ScanOptions): void {
 	const context = getProjectContext();
 	const result = scanContext(context);
 	const skills = topLevelSkills({
@@ -506,6 +535,13 @@ function scanCommand(options: { all?: boolean }): void {
 		skills: result.skills,
 		includeAll: Boolean(options.all),
 	});
+	if (options.json) {
+		console.log(
+			JSON.stringify(scanJsonPayload({ context, skills, result }), null, 2),
+		);
+		return;
+	}
+
 	printContext(context);
 	console.log();
 	printWarnings(result.warnings);
@@ -529,19 +565,11 @@ function listCommand(options: ListOptions): void {
 	const statuses = installedStatuses({ targets, skills: result.skills });
 
 	if (options.json) {
+		const payload = scanJsonPayload({ context, skills, result });
 		console.log(
 			JSON.stringify(
 				{
-					project_root: context.projectRoot,
-					target_environment: context.targetEnvironment ?? "",
-					node_modules: context.nodeModulesDir ?? "",
-					skills: skills.map((skill) => ({
-						name: skill.name,
-						description: skill.description,
-						package: skill.packageName,
-						version: skill.packageVersion,
-						path: skill.skillDir,
-					})),
+					...payload,
 					installed: statuses
 						.filter((status) => status.type !== "missing")
 						.map((status) => ({
@@ -551,7 +579,6 @@ function listCommand(options: ListOptions): void {
 							path: status.path,
 							source: status.targetPath ?? "",
 						})),
-					warnings: result.warnings,
 				},
 				null,
 				2,
@@ -665,8 +692,9 @@ export function createProgram(): Command {
 	program
 		.command("scan")
 		.description("Discover skills in installed packages.")
+		.option("--json", "Output as JSON")
 		.option("--all", "Include skills from transitive dependencies")
-		.action((options: { all?: boolean }) => {
+		.action((options: ScanOptions) => {
 			scanCommand(options);
 		});
 

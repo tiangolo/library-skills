@@ -199,6 +199,7 @@ def test_scan_includes_python_and_node_package_skills(tmp_path, monkeypatch):
 
     result = runner.invoke(app, ["scan"])
     all_result = runner.invoke(app, ["scan", "--all"])
+    json_result = runner.invoke(app, ["scan", "--json", "--all"])
 
     assert result.exit_code == 0
     assert "Target Python environment: .venv" in result.output
@@ -210,6 +211,16 @@ def test_scan_includes_python_and_node_package_skills(tmp_path, monkeypatch):
     assert all_result.exit_code == 0
     assert "transitive-skill" in all_result.output
     assert "transitive-node-skill" in all_result.output
+    assert json_result.exit_code == 0
+    payload = json.loads(json_result.output)
+    assert payload["project_root"] == str(project)
+    assert "installed" not in payload
+    assert [skill["name"] for skill in payload["skills"]] == [
+        "python-skill",
+        "transitive-skill",
+        "node-skill",
+        "transitive-node-skill",
+    ]
 
 
 def test_install_skill_can_explicitly_select_transitive_dependency(

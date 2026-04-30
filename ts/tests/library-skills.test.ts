@@ -805,6 +805,15 @@ test("CLI list and scan commands cover JSON, installed, warnings, and empty outp
   await main(["node", "library-skills", "scan", "--all"]);
   expect(log).toHaveBeenCalledWith(expect.stringContaining("transitive-skill"));
 
+  await createProgram().parseAsync(["node", "library-skills", "scan", "--json", "--all"]);
+  const scanJson = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+  expect(scanJson.project_root).toBe(project);
+  expect(scanJson.installed).toBeUndefined();
+  expect(scanJson.skills.map((skill: { name: string }) => skill.name)).toEqual([
+    "top-skill",
+    "transitive-skill",
+  ]);
+
   await createProgram().parseAsync(["node", "library-skills", "list", "--json", "--all"]);
   const json = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
   expect(json.project_root).toBe(project);
