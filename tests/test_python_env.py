@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from library_skills.python_env import (
+    find_node_modules,
     find_project_root,
     find_venv,
     get_site_packages_dir,
@@ -30,6 +31,20 @@ def test_find_project_root_uses_nearest_python_project_marker(tmp_path):
     (subproject / "uv.lock").write_text("", encoding="utf-8")
 
     assert find_project_root(nested) == subproject
+
+
+def test_find_project_root_uses_node_project_markers(tmp_path):
+    project = tmp_path / "project"
+    nested = project / "src"
+    nested.mkdir(parents=True)
+    (project / "package.json").write_text("{}", encoding="utf-8")
+
+    assert find_project_root(nested) == project
+
+    (project / "package.json").unlink()
+    (project / "node_modules").mkdir()
+
+    assert find_project_root(nested) == project
 
 
 def test_find_venv_prefers_uv_project_environment(monkeypatch, tmp_path):
@@ -100,3 +115,14 @@ def test_get_site_packages_dir_returns_none_without_site_packages(tmp_path):
     (venv / "lib" / "python3.12").mkdir(parents=True)
 
     assert get_site_packages_dir(venv) is None
+
+
+def test_find_node_modules_uses_nearest_ancestor(tmp_path):
+    project = tmp_path / "project"
+    nested = project / "src" / "pkg"
+    node_modules = project / "node_modules"
+    nested.mkdir(parents=True)
+    node_modules.mkdir()
+
+    assert find_node_modules(nested) == node_modules
+    assert find_node_modules(tmp_path / "missing") is None

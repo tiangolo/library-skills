@@ -7,6 +7,7 @@ from library_skills.scanner import (
     _is_relative_to,
     _read_editable_source_root,
     _scan_editable_direct_url,
+    scan_node_packages,
     scan_python_distributions,
 )
 
@@ -43,6 +44,22 @@ def write_dist_info(
     return dist_info
 
 
+def write_node_package(
+    node_modules: Path,
+    package_name: str,
+    *,
+    version: str = "1.0.0",
+    skill_name: str = "node-skill",
+) -> Path:
+    package_root = node_modules / package_name
+    skill_md = write_skill(package_root, skill_name)
+    package_root.joinpath("package.json").write_text(
+        json.dumps({"name": package_name, "version": version}),
+        encoding="utf-8",
+    )
+    return skill_md
+
+
 def test_scan_python_distributions_discovers_record_based_skills(tmp_path):
     site_packages = tmp_path / "site-packages"
     package_root = site_packages / "demo_pkg"
@@ -65,6 +82,72 @@ def test_scan_python_distributions_discovers_record_based_skills(tmp_path):
     assert skill.package_version == "1.2.3"
     assert skill.path == skill_md.resolve()
     assert skill.skill_dir == skill_md.parent
+
+
+def test_scan_node_packages_discovers_package_skills(tmp_path):
+    node_modules = tmp_path / "node_modules"
+    skill_md = write_node_package(
+        node_modules,
+        "@scope/demo-pkg",
+        version="2.0.0",
+        skill_name="node-skill",
+    )
+
+    result = scan_node_packages(node_modules)
+
+    assert result.warnings == []
+    assert len(result.skills) == 1
+    skill = result.skills[0]
+    assert skill.name == "node-skill"
+    assert skill.description == "Demo skill."
+    assert skill.package_name == "@scope/demo-pkg"
+    assert skill.package_version == "2.0.0"
+    assert skill.path == skill_md.resolve()
+    assert skill.skill_dir == skill_md.parent.resolve()
+
+
+def test_scan_node_packages_warns_for_missing_or_invalid_metadata(tmp_path):
+    missing = scan_node_packages(tmp_path / "missing")
+    assert missing.skills == []
+    assert missing.warnings == [
+        f"node_modules directory not found: {tmp_path / 'missing'}"
+    ]
+
+    node_modules = tmp_path / "node_modules"
+    node_modules.mkdir()
+    (node_modules / "README.md").write_text("not a package", encoding="utf-8")
+    package_root = node_modules / "bad-pkg"
+    write_skill(package_root, "bad-skill")
+    array_package = node_modules / "array-pkg"
+    array_package.mkdir()
+    array_package.joinpath("package.json").write_text("[]", encoding="utf-8")
+    nameless_package = node_modules / "nameless-pkg"
+    nameless_package.mkdir()
+    nameless_package.joinpath("package.json").write_text("{}", encoding="utf-8")
+
+    result = scan_node_packages(node_modules)
+
+    assert result.skills == []
+    assert result.warnings == [
+        f"Skipping invalid package metadata: {array_package}",
+        f"Skipping invalid package metadata: {package_root}",
+        f"Skipping invalid package metadata: {nameless_package}",
+    ]
+
+
+def test_scan_node_packages_warns_for_invalid_skill_metadata(tmp_path):
+    node_modules = tmp_path / "node_modules"
+    skill_md = write_node_package(node_modules, "demo-pkg", skill_name="actual-name")
+    skill_md.write_text(
+        "---\nname: different-name\ndescription: Demo skill.\n---\n",
+        encoding="utf-8",
+    )
+
+    result = scan_node_packages(node_modules)
+
+    assert result.skills == []
+    assert len(result.warnings) == 1
+    assert "must match parent directory name" in result.warnings[0]
 
 
 def test_scan_python_distributions_warns_for_invalid_skill_metadata(tmp_path):

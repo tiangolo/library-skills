@@ -40,6 +40,53 @@ export function getPythonTopLevelDeps(projectRoot: string): Set<string> | null {
   return deps;
 }
 
+export function getNodeTopLevelDeps(projectRoot: string): Set<string> | null {
+	const packageJson = join(projectRoot, "package.json");
+	if (!existsSync(packageJson)) {
+		return null;
+	}
+
+	let data: unknown;
+	try {
+		data = JSON.parse(readFileSync(packageJson, "utf8"));
+	} catch {
+		return null;
+	}
+
+	if (!isRecord(data)) {
+		return new Set();
+	}
+
+	const deps = new Set<string>();
+	for (const field of [
+		"dependencies",
+		"devDependencies",
+		"optionalDependencies",
+		"peerDependencies",
+	]) {
+		const dependencies = data[field];
+		if (!isRecord(dependencies)) {
+			continue;
+		}
+		for (const packageName of Object.keys(dependencies)) {
+			deps.add(normalizePackageName(packageName));
+		}
+	}
+
+	return deps;
+}
+
+export function getTopLevelDeps(projectRoot: string): Set<string> | null {
+	const dependencySets = [
+		getPythonTopLevelDeps(projectRoot),
+		getNodeTopLevelDeps(projectRoot),
+	].filter((deps): deps is Set<string> => deps !== null);
+	if (dependencySets.length === 0) {
+		return null;
+	}
+	return new Set(dependencySets.flatMap((deps) => [...deps]));
+}
+
 function extractDepsFromSpecs(depSpecs: unknown[], deps: Set<string>): void {
   for (const depSpec of depSpecs) {
     if (typeof depSpec !== "string") {

@@ -4,6 +4,7 @@ import {
 	readFileSync,
 	readdirSync,
 	realpathSync,
+	statSync,
 } from "node:fs";
 import {
 	basename,
@@ -86,6 +87,97 @@ export function scanPythonDistributions(sitePackages: string): ScanResult {
 	}
 
 	return result;
+}
+
+export function scanNodePackages(nodeModules: string): ScanResult {
+	const result: ScanResult = { skills: [], warnings: [] };
+	const seenSkillDirs = new Set<string>();
+
+	if (!isDirectory(nodeModules)) {
+		result.warnings.push(`node_modules directory not found: ${nodeModules}`);
+		return result;
+	}
+
+	for (const packageRoot of iterNodePackageRoots(nodeModules)) {
+		const packageInfo = readNodePackageInfo(packageRoot);
+		if (packageInfo === null) {
+			result.warnings.push(`Skipping invalid package metadata: ${packageRoot}`);
+			continue;
+		}
+
+		for (const skillMd of findNodeSkillMarkdownFiles(packageRoot)) {
+			const skillDir = realpathOrResolve(dirname(skillMd));
+			if (seenSkillDirs.has(skillDir)) {
+				continue;
+			}
+			seenSkillDirs.add(skillDir);
+
+			const [skill, warning] = loadSkill({
+				skillDir,
+				skillMd: realpathOrResolve(skillMd),
+				packageName: packageInfo.name,
+				packageVersion: packageInfo.version,
+			});
+			if (skill) {
+				result.skills.push(skill);
+			} else if (warning) {
+				result.warnings.push(warning);
+			}
+		}
+	}
+
+	return result;
+}
+
+function iterNodePackageRoots(nodeModules: string): string[] {
+	const packageRoots: string[] = [];
+	for (const entry of readdirSync(nodeModules).sort()) {
+		const fullPath = join(nodeModules, entry);
+		if (!isDirectory(fullPath)) {
+			continue;
+		}
+		if (entry.startsWith("@")) {
+			for (const scopedEntry of readdirSync(fullPath).sort()) {
+				const scopedPath = join(fullPath, scopedEntry);
+				if (isDirectory(scopedPath)) {
+					packageRoots.push(scopedPath);
+				}
+			}
+		} else {
+			packageRoots.push(fullPath);
+		}
+	}
+	return packageRoots;
+}
+
+function readNodePackageInfo(packageRoot: string): DistributionInfo | null {
+	let data: unknown;
+	try {
+		data = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
+	} catch {
+		return null;
+	}
+
+	if (!isRecord(data)) {
+		return null;
+	}
+	const name = data["name"];
+	if (typeof name !== "string" || name === "") {
+		return null;
+	}
+	const version = data["version"];
+	return { name, version: typeof version === "string" ? version : "" };
+}
+
+function findNodeSkillMarkdownFiles(packageRoot: string): string[] {
+	const skillsRoot = join(packageRoot, ".agents", "skills");
+	if (!isDirectory(skillsRoot)) {
+		return [];
+	}
+	return readdirSync(skillsRoot)
+		.sort()
+		.map((entry) => join(skillsRoot, entry, "SKILL.md"))
+		.filter((skillMd) => existsSync(skillMd));
 }
 
 function readDistributionInfo(distInfo: string): DistributionInfo | null {
@@ -430,7 +522,7 @@ export function normalizePackageName(name: string): string {
 
 function isDirectory(path: string): boolean {
 	try {
-		return lstatSync(path).isDirectory();
+		return statSync(path).isDirectory();
 	} catch {
 		return false;
 	}
@@ -469,9 +561,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export const testing = {
 	findSkillMarkdownFiles,
+	findNodeSkillMarkdownFiles,
+	iterNodePackageRoots,
 	isSkillFileRecord,
 	isSkillMarkdownPath,
 	realpathOrResolve,
+	readNodePackageInfo,
 	readEditableSourceRoot,
 	scanEditableDirectUrl,
 };

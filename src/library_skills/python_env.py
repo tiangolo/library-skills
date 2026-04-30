@@ -9,6 +9,8 @@ def find_project_root(cwd: Path) -> Path | None:
             (directory / "pyproject.toml").is_file()
             or (directory / "uv.lock").is_file()
             or (directory / ".venv" / "pyvenv.cfg").is_file()
+            or (directory / "package.json").is_file()
+            or (directory / "node_modules").is_dir()
         ):
             return directory
     return None
@@ -80,6 +82,16 @@ def get_site_packages_dir(venv_path: Path) -> Path | None:
                 ):
                     return site_packages
 
+    return None
+
+
+def find_node_modules(cwd: Path | None = None) -> Path | None:
+    """Find the nearest Node.js node_modules directory walking up from cwd."""
+    cwd = cwd or Path.cwd()
+    for directory in [cwd, *cwd.parents]:
+        node_modules = directory / "node_modules"
+        if node_modules.is_dir():
+            return node_modules
     return None
 
 
