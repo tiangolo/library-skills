@@ -4,9 +4,11 @@ import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 export function findProjectRoot(cwd: string): string | null {
   for (const directory of ancestors(cwd)) {
     if (
-      existsSync(join(directory, "pyproject.toml")) ||
-      existsSync(join(directory, "uv.lock")) ||
-      existsSync(join(directory, ".venv", "pyvenv.cfg"))
+        existsSync(join(directory, "pyproject.toml")) ||
+        existsSync(join(directory, "uv.lock")) ||
+        existsSync(join(directory, ".venv", "pyvenv.cfg")) ||
+        existsSync(join(directory, "package.json")) ||
+        existsSync(join(directory, "node_modules"))
     ) {
       return directory;
     }
@@ -71,6 +73,16 @@ export function getSitePackagesDir(venvPath: string): string | null {
 }
 
 export const getSitePackages = getSitePackagesDir;
+
+export function findNodeModules(cwd = process.cwd()): string | null {
+  for (const directory of ancestors(cwd)) {
+    const nodeModules = join(directory, "node_modules");
+    if (existsSync(nodeModules)) {
+      return nodeModules;
+    }
+  }
+  return null;
+}
 
 function isVenvDir(directory: string): boolean {
   return existsSync(join(directory, "pyvenv.cfg"));

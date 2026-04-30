@@ -70,6 +70,26 @@ def write_distribution_skill(
     return skill_dir
 
 
+def write_node_package_skill(
+    project: Path,
+    *,
+    package_name: str,
+    skill_name: str,
+) -> Path:
+    package_root = project / "node_modules" / package_name
+    skill_dir = package_root / ".agents" / "skills" / skill_name
+    skill_dir.mkdir(parents=True)
+    skill_dir.joinpath("SKILL.md").write_text(
+        f"---\nname: {skill_name}\ndescription: Node skill.\n---\n",
+        encoding="utf-8",
+    )
+    package_root.joinpath("package.json").write_text(
+        json.dumps({"name": package_name, "version": "2.0.0"}),
+        encoding="utf-8",
+    )
+    return skill_dir
+
+
 def write_distribution(
     site_packages: Path,
     *,
@@ -144,6 +164,52 @@ def test_scan_filters_to_top_level_dependencies_by_default(tmp_path, monkeypatch
     assert all_result.exit_code == 0
     assert "top-skill" in all_result.output
     assert "transitive-skill" in all_result.output
+
+
+def test_scan_includes_python_and_node_package_skills(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=["top-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution_skill(
+        site_packages,
+        dist_name="top-pkg",
+        package_dir="top_pkg",
+        skill_name="python-skill",
+    )
+    write_distribution_skill(
+        site_packages,
+        dist_name="transitive-pkg",
+        package_dir="transitive_pkg",
+        skill_name="transitive-skill",
+    )
+    write_node_package_skill(
+        project,
+        package_name="@scope/node-pkg",
+        skill_name="node-skill",
+    )
+    write_node_package_skill(
+        project,
+        package_name="transitive-node-pkg",
+        skill_name="transitive-node-skill",
+    )
+    project.joinpath("package.json").write_text(
+        json.dumps({"dependencies": {"@scope/node-pkg": "^2.0.0"}}),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["scan"])
+    all_result = runner.invoke(app, ["scan", "--all"])
+
+    assert result.exit_code == 0
+    assert "Target Python environment: .venv" in result.output
+    assert "node_modules: node_modules" in result.output
+    assert "python-skill" in result.output
+    assert "node-skill" in result.output
+    assert "transitive-skill" not in result.output
+    assert "transitive-node-skill" not in result.output
+    assert all_result.exit_code == 0
+    assert "transitive-skill" in all_result.output
+    assert "transitive-node-skill" in all_result.output
 
 
 def test_install_skill_can_explicitly_select_transitive_dependency(
@@ -348,7 +414,10 @@ def test_scan_without_target_environment_prints_warning(tmp_path, monkeypatch):
     result = runner.invoke(app, ["scan"])
 
     assert result.exit_code == 0
-    assert "No target Python environment" in result.output
+    assert (
+        "No target Python environment with site-packages or node_modules"
+        in result.output
+    )
 
 
 def test_default_check_without_environment_reports_no_discovered_skills(

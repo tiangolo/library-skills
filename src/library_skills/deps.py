@@ -1,3 +1,4 @@
+import json
 import re
 import sys
 from pathlib import Path
@@ -40,6 +41,51 @@ def get_python_top_level_deps(project_root: Path) -> set[str] | None:
                 _extract_deps_from_specs(group_dependencies, deps)
 
     return deps
+
+
+def get_node_top_level_deps(project_root: Path) -> set[str] | None:
+    """Parse package.json to get top-level dependency names."""
+    package_json = project_root / "package.json"
+    if not package_json.is_file():
+        return None
+
+    try:
+        data = json.loads(package_json.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    if not isinstance(data, dict):
+        return set()
+
+    deps: set[str] = set()
+    for field in (
+        "dependencies",
+        "devDependencies",
+        "optionalDependencies",
+        "peerDependencies",
+    ):
+        dependencies = data.get(field)
+        if isinstance(dependencies, dict):
+            for package_name in dependencies:
+                if isinstance(package_name, str):
+                    deps.add(_normalize_package_name(package_name))
+
+    return deps
+
+
+def get_top_level_deps(project_root: Path) -> set[str] | None:
+    """Parse project metadata to get top-level Python and Node dependency names."""
+    dependency_sets = [
+        deps
+        for deps in (
+            get_python_top_level_deps(project_root),
+            get_node_top_level_deps(project_root),
+        )
+        if deps is not None
+    ]
+    if not dependency_sets:
+        return None
+    return set().union(*dependency_sets)
 
 
 def _extract_deps_from_specs(dep_specs: list[object], deps: set[str]) -> None:

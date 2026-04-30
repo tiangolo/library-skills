@@ -12,7 +12,7 @@ from rich_toolkit import RichToolkit
 from rich_toolkit.menu import Option
 from rich_toolkit.styles import MinimalStyle
 
-from .deps import get_python_top_level_deps
+from .deps import get_top_level_deps
 from .installer import (
     InstallError,
     InstallTarget,
@@ -21,11 +21,17 @@ from .installer import (
     list_installed_skills,
     uninstall_skill,
 )
-from .python_env import find_project_root, find_venv, get_site_packages_dir
+from .python_env import (
+    find_node_modules,
+    find_project_root,
+    find_venv,
+    get_site_packages_dir,
+)
 from .scanner import (
     ScanResult,
     Skill,
     _normalize_package_name,
+    scan_node_packages,
     scan_python_distributions,
 )
 
@@ -59,6 +65,7 @@ class ProjectContext:
     project_root: Path
     target_environment: Path | None
     site_packages_dir: Path | None
+    node_modules_dir: Path | None
 
 
 @dataclass(frozen=True)
@@ -85,22 +92,30 @@ def _get_project_context(cwd: Path | None = None) -> ProjectContext:
     site_packages_dir = (
         get_site_packages_dir(target_environment) if target_environment else None
     )
+    node_modules_dir = find_node_modules(cwd)
     return ProjectContext(
         cwd=cwd,
         project_root=project_root,
         target_environment=target_environment,
         site_packages_dir=site_packages_dir,
+        node_modules_dir=node_modules_dir,
     )
 
 
 def _scan_context(context: ProjectContext) -> ScanResult:
-    if context.site_packages_dir is None:
-        return ScanResult(
-            warnings=["No target Python environment with site-packages was found."],
-            environment_path=context.target_environment,
+    result = ScanResult(environment_path=context.target_environment)
+    if context.site_packages_dir is not None:
+        python_result = scan_python_distributions(context.site_packages_dir)
+        result.skills.extend(python_result.skills)
+        result.warnings.extend(python_result.warnings)
+    if context.node_modules_dir is not None:
+        node_result = scan_node_packages(context.node_modules_dir)
+        result.skills.extend(node_result.skills)
+        result.warnings.extend(node_result.warnings)
+    if context.site_packages_dir is None and context.node_modules_dir is None:
+        result.warnings.append(
+            "No target Python environment with site-packages or node_modules was found."
         )
-
-    result = scan_python_distributions(context.site_packages_dir)
     result.environment_path = context.target_environment
     return result
 
@@ -133,6 +148,11 @@ def _print_context(context: ProjectContext) -> None:
         console.print(
             f"Site-packages: "
             f"{_display_path(context.site_packages_dir, context.project_root)}"
+        )
+    if context.node_modules_dir:
+        console.print(
+            f"node_modules: "
+            f"{_display_path(context.node_modules_dir, context.project_root)}"
         )
 
 
@@ -167,7 +187,7 @@ def _top_level_skills(
     if include_all:
         return skills
 
-    top_level_deps = get_python_top_level_deps(context.project_root)
+    top_level_deps = get_top_level_deps(context.project_root)
     if top_level_deps is None:
         return skills
 
@@ -535,6 +555,7 @@ def list_cmd(
         payload = {
             "project_root": str(context.project_root),
             "target_environment": str(context.target_environment or ""),
+            "node_modules": str(context.node_modules_dir or ""),
             "skills": [
                 {
                     "name": skill.name,

@@ -75,10 +75,73 @@ def scan_python_distributions(site_packages: Path) -> ScanResult:
     return result
 
 
+def scan_node_packages(node_modules: Path) -> ScanResult:
+    """Scan Node.js packages in node_modules for bundled skills."""
+    result = ScanResult()
+
+    if not node_modules.is_dir():
+        result.warnings.append(f"node_modules directory not found: {node_modules}")
+        return result
+
+    for package_root in _iter_node_package_roots(node_modules):
+        package_info = _read_node_package_info(package_root)
+        if package_info is None:
+            result.warnings.append(f"Skipping invalid package metadata: {package_root}")
+            continue
+
+        for skill_md in sorted(package_root.glob(".agents/skills/*/SKILL.md")):
+            skill_dir = skill_md.parent.resolve()
+            skill, warning = _load_skill(
+                skill_dir=skill_dir,
+                skill_md=skill_md.resolve(),
+                package_name=package_info.name,
+                package_version=package_info.version,
+            )
+            if skill:
+                result.skills.append(skill)
+            elif warning:
+                result.warnings.append(warning)
+
+    return result
+
+
+def _iter_node_package_roots(node_modules: Path) -> list[Path]:
+    package_roots: list[Path] = []
+    for entry in sorted(node_modules.iterdir()):
+        if not entry.is_dir():
+            continue
+        if entry.name.startswith("@"):
+            package_roots.extend(
+                child for child in sorted(entry.iterdir()) if child.is_dir()
+            )
+        else:
+            package_roots.append(entry)
+    return package_roots
+
+
 @dataclass(frozen=True)
 class _DistributionInfo:
     name: str
     version: str
+
+
+_PackageInfo = _DistributionInfo
+
+
+def _read_node_package_info(package_root: Path) -> _PackageInfo | None:
+    package_json = package_root / "package.json"
+    try:
+        data = json.loads(package_json.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    if not isinstance(data, dict):
+        return None
+    name = data.get("name")
+    if not isinstance(name, str) or not name:
+        return None
+    version = data.get("version")
+    return _PackageInfo(name=name, version=version if isinstance(version, str) else "")
 
 
 def _read_distribution_info(dist_info: Path) -> _DistributionInfo | None:

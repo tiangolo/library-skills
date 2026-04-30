@@ -17,7 +17,12 @@ import checkbox from "@inquirer/checkbox";
 import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createProgram, main, testing as cliTesting } from "../src/cli.js";
-import { getPythonTopLevelDeps, testing as depsTesting } from "../src/deps.js";
+import {
+  getNodeTopLevelDeps,
+  getPythonTopLevelDeps,
+  getTopLevelDeps,
+  testing as depsTesting,
+} from "../src/deps.js";
 import {
   getTargetDirs,
   InstallError,
@@ -28,11 +33,13 @@ import {
 } from "../src/installer.js";
 import {
   findProjectRoot,
+  findNodeModules,
   findVenv,
   getSitePackagesDir,
 } from "../src/python-env.js";
 import {
   normalizePackageName,
+  scanNodePackages,
   scanPythonDistributions,
   testing as scannerTesting,
   type Skill,
@@ -87,6 +94,95 @@ test("scans Python distribution RECORD entries for valid skills", () => {
       packageVersion: "1.0.0",
     },
   ]);
+});
+
+test("scans Node packages for valid skills", () => {
+  const nodeModules = tempDir();
+  writeNodePackageSkill({
+    nodeModules,
+    packageName: "@scope/example-pkg",
+    skillName: "node-skill",
+    version: "2.0.0",
+  });
+
+  const result = scanNodePackages(nodeModules);
+
+  expect(result.warnings).toEqual([]);
+  expect(result.skills).toMatchObject([
+    {
+      name: "node-skill",
+      description: "node-skill description.",
+      packageName: "@scope/example-pkg",
+      packageVersion: "2.0.0",
+    },
+  ]);
+});
+
+test("reports invalid Node package and skill metadata", () => {
+  const nodeModules = tempDir();
+  writeFileSync(join(nodeModules, "README.md"), "not a package");
+  mkdirSync(join(nodeModules, "bad-pkg", ".agents", "skills", "bad-skill"), {
+    recursive: true,
+  });
+  writeFileSync(
+    join(nodeModules, "bad-pkg", ".agents", "skills", "bad-skill", "SKILL.md"),
+    "---\nname: bad-skill\ndescription: Bad skill.\n---\n",
+  );
+  writeNodePackageSkill({
+    nodeModules,
+    packageName: "invalid-skill",
+    skillName: "actual-name",
+  });
+  writeFileSync(
+    join(
+      nodeModules,
+      "invalid-skill",
+      ".agents",
+      "skills",
+      "actual-name",
+      "SKILL.md",
+    ),
+    "---\nname: different-name\ndescription: Invalid skill.\n---\n",
+  );
+  mkdirSync(join(nodeModules, "array-pkg"), { recursive: true });
+  writeFileSync(join(nodeModules, "array-pkg", "package.json"), "[]");
+  mkdirSync(join(nodeModules, "nameless-pkg"), { recursive: true });
+  writeFileSync(join(nodeModules, "nameless-pkg", "package.json"), "{}");
+  mkdirSync(join(nodeModules, "empty-pkg"), { recursive: true });
+  writeFileSync(
+    join(nodeModules, "empty-pkg", "package.json"),
+    JSON.stringify({ name: "empty-pkg" }),
+  );
+  symlinkSync(join(nodeModules, "invalid-skill"), join(nodeModules, "linked-skill"), "dir");
+
+  const missing = join(tempDir(), "missing");
+  expect(scanNodePackages(missing)).toMatchObject({
+    skills: [],
+    warnings: [`node_modules directory not found: ${missing}`],
+  });
+
+  const result = scanNodePackages(nodeModules);
+  expect(result.skills).toEqual([]);
+  expect(result.warnings).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining("Skipping invalid package metadata"),
+      expect.stringContaining("must match parent directory"),
+    ]),
+  );
+  expect(scannerTesting.readNodePackageInfo(join(nodeModules, "array-pkg"))).toBeNull();
+  expect(scannerTesting.readNodePackageInfo(join(nodeModules, "nameless-pkg"))).toBeNull();
+  expect(scannerTesting.iterNodePackageRoots(nodeModules)).toContain(
+    join(nodeModules, "invalid-skill"),
+  );
+  expect(scannerTesting.iterNodePackageRoots(nodeModules)).not.toContain(
+    join(nodeModules, "README.md"),
+  );
+  expect(scannerTesting.findNodeSkillMarkdownFiles(join(nodeModules, "missing"))).toEqual(
+    [],
+  );
+  expect(scannerTesting.findNodeSkillMarkdownFiles(join(nodeModules, "empty-pkg"))).toEqual(
+    [],
+  );
 });
 
 test("reports invalid distribution and skill metadata without returning invalid skills", () => {
@@ -351,6 +447,34 @@ test("parses project dependency names from pyproject.toml", () => {
   );
 });
 
+test("parses project dependency names from package.json", () => {
+  const project = tempDir();
+  writeFileSync(
+    join(project, "package.json"),
+    JSON.stringify({
+      dependencies: { "@Scope/Example_Pkg": "^1.0.0" },
+      devDependencies: { Vitest: "^4.0.0" },
+      optionalDependencies: { "Optional.Pkg": "^1.0.0" },
+      peerDependencies: { Peer_Pkg: "^1.0.0" },
+    }),
+  );
+
+  expect(getNodeTopLevelDeps(project)).toEqual(
+    new Set(["@scope/example-pkg", "vitest", "optional-pkg", "peer-pkg"]),
+  );
+});
+
+test("combines Python and Node project dependency names", () => {
+  const project = tempDir();
+  writeFileSync(join(project, "pyproject.toml"), "[project]\ndependencies = ['Python_Pkg']\n");
+  writeFileSync(
+    join(project, "package.json"),
+    JSON.stringify({ dependencies: { node_pkg: "^1.0.0" } }),
+  );
+
+  expect(getTopLevelDeps(project)).toEqual(new Set(["python-pkg", "node-pkg"]));
+});
+
 test("handles missing, invalid, and partial pyproject dependency metadata", () => {
   expect(getPythonTopLevelDeps(tempDir())).toBeNull();
 
@@ -377,6 +501,15 @@ test("handles missing, invalid, and partial pyproject dependency metadata", () =
     "[project]\nname = 'demo'\n[project.optional-dependencies]\ndev = 'pytest'\n",
   );
   expect(getPythonTopLevelDeps(optionalScalar)).toEqual(new Set());
+
+  expect(getNodeTopLevelDeps(tempDir())).toBeNull();
+  const invalidPackage = tempDir();
+  writeFileSync(join(invalidPackage, "package.json"), "{");
+  expect(getNodeTopLevelDeps(invalidPackage)).toBeNull();
+
+  const packageArray = tempDir();
+  writeFileSync(join(packageArray, "package.json"), "[]");
+  expect(getNodeTopLevelDeps(packageArray)).toEqual(new Set());
 });
 
 test("resolves project virtualenvs and site-packages", () => {
@@ -392,6 +525,15 @@ test("resolves project virtualenvs and site-packages", () => {
   expect(findProjectRoot(nested)).toBe(project);
   expect(findVenv(nested)).toBe(venv);
   expect(getSitePackagesDir(venv)).toBe(sitePackages);
+
+  const nodeProject = tempDir();
+  const nodeNested = join(nodeProject, "src");
+  mkdirSync(nodeNested, { recursive: true });
+  writeFileSync(join(nodeProject, "package.json"), "{}");
+  expect(findProjectRoot(nodeNested)).toBe(nodeProject);
+  mkdirSync(join(nodeProject, "node_modules"), { recursive: true });
+  expect(findNodeModules(nodeNested)).toBe(join(nodeProject, "node_modules"));
+  expect(findNodeModules(tempDir())).toBeNull();
 });
 
 test("handles alternate and missing Python environment discovery paths", () => {
@@ -512,6 +654,21 @@ describe("installer", () => {
 
 test("CLI scan defaults to top-level project dependencies", async () => {
   const project = writeProjectWithTopLevelAndTransitiveSkills();
+  mkdirSync(join(project, "node_modules"), { recursive: true });
+  writeNodePackageSkill({
+    nodeModules: join(project, "node_modules"),
+    packageName: "@scope/node-pkg",
+    skillName: "node-skill",
+  });
+  writeNodePackageSkill({
+    nodeModules: join(project, "node_modules"),
+    packageName: "transitive-node-pkg",
+    skillName: "transitive-node-skill",
+  });
+  writeFileSync(
+    join(project, "package.json"),
+    JSON.stringify({ dependencies: { "@scope/node-pkg": "^1.0.0" } }),
+  );
   process.chdir(project);
   const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -522,9 +679,13 @@ test("CLI scan defaults to top-level project dependencies", async () => {
   expect(log).toHaveBeenCalledWith(
     expect.stringMatching(/^Site-packages: \.venv[/\\]/),
   );
+  expect(log).toHaveBeenCalledWith("node_modules: node_modules");
   expect(log).toHaveBeenCalledWith(expect.stringContaining("Skill"));
   expect(log).toHaveBeenCalledWith(expect.stringContaining("top-skill"));
   expect(log).toHaveBeenCalledWith(expect.stringContaining("top-level-pkg"));
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("node-skill"));
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("@scope/node-pkg"));
+  expect(log).not.toHaveBeenCalledWith(expect.stringContaining("transitive-node-skill"));
 });
 
 test("CLI installs all discovered skills with --yes --all", async () => {
@@ -658,10 +819,13 @@ test("CLI list and scan commands cover JSON, installed, warnings, and empty outp
   await createProgram().parseAsync(["node", "library-skills", "list", "--json"]);
   const noEnvJson = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
   expect(noEnvJson.targetEnvironment).toBe("");
+  expect(noEnvJson.nodeModules).toBe("");
 
   await createProgram().parseAsync(["node", "library-skills", "scan"]);
   expect(error).toHaveBeenCalledWith(
-    expect.stringContaining("No target Python environment with site-packages was found."),
+    expect.stringContaining(
+      "No target Python environment with site-packages or node_modules was found.",
+    ),
   );
   expect(log).toHaveBeenCalledWith("No skills found in installed packages.");
 });
@@ -864,6 +1028,30 @@ function writePackageSkill({
   });
   writeSkill(
     join(sitePackages, packageDir, ".agents", "skills", skillName),
+    skillName,
+    `${skillName} description.`,
+  );
+}
+
+function writeNodePackageSkill({
+  nodeModules,
+  packageName,
+  skillName,
+  version = "1.0.0",
+}: {
+  nodeModules: string;
+  packageName: string;
+  skillName: string;
+  version?: string;
+}): void {
+  const packageRoot = join(nodeModules, packageName);
+  mkdirSync(packageRoot, { recursive: true });
+  writeFileSync(
+    join(packageRoot, "package.json"),
+    JSON.stringify({ name: packageName, version }),
+  );
+  writeSkill(
+    join(packageRoot, ".agents", "skills", skillName),
     skillName,
     `${skillName} description.`,
   );

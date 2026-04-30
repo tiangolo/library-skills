@@ -5,7 +5,7 @@ import { Command } from "commander";
 import { statSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getPythonTopLevelDeps } from "./deps.js";
+import { getTopLevelDeps } from "./deps.js";
 import {
 	getTargetDirs,
 	installSkill,
@@ -14,9 +14,15 @@ import {
 	uninstallSkill,
 	type InstallTarget,
 } from "./installer.js";
-import { findProjectRoot, findVenv, getSitePackagesDir } from "./python-env.js";
+import {
+	findNodeModules,
+	findProjectRoot,
+	findVenv,
+	getSitePackagesDir,
+} from "./python-env.js";
 import {
 	normalizePackageName,
+	scanNodePackages,
 	scanPythonDistributions,
 	type ScanResult,
 	type Skill,
@@ -27,6 +33,7 @@ interface ProjectContext {
 	projectRoot: string;
 	targetEnvironment: string | null;
 	sitePackagesDir: string | null;
+	nodeModulesDir: string | null;
 }
 
 interface InstalledStatus {
@@ -74,21 +81,32 @@ function getProjectContext(cwd = process.cwd()): ProjectContext {
 	const targetEnvironment = findVenv(cwd);
 	const sitePackagesDir =
 		targetEnvironment === null ? null : getSitePackagesDir(targetEnvironment);
-	return { cwd, projectRoot, targetEnvironment, sitePackagesDir };
+	const nodeModulesDir = findNodeModules(cwd);
+	return { cwd, projectRoot, targetEnvironment, sitePackagesDir, nodeModulesDir };
 }
 
 function scanContext(context: ProjectContext): ScanResult {
-	if (context.sitePackagesDir === null) {
-		return {
-			skills: [],
-			warnings: ["No target Python environment with site-packages was found."],
-			environmentPath: context.targetEnvironment ?? undefined,
-		};
-	}
-	return {
-		...scanPythonDistributions(context.sitePackagesDir),
+	const result: ScanResult = {
+		skills: [],
+		warnings: [],
 		environmentPath: context.targetEnvironment ?? undefined,
 	};
+	if (context.sitePackagesDir !== null) {
+		const pythonResult = scanPythonDistributions(context.sitePackagesDir);
+		result.skills.push(...pythonResult.skills);
+		result.warnings.push(...pythonResult.warnings);
+	}
+	if (context.nodeModulesDir !== null) {
+		const nodeResult = scanNodePackages(context.nodeModulesDir);
+		result.skills.push(...nodeResult.skills);
+		result.warnings.push(...nodeResult.warnings);
+	}
+	if (context.sitePackagesDir === null && context.nodeModulesDir === null) {
+		result.warnings.push(
+			"No target Python environment with site-packages or node_modules was found.",
+		);
+	}
+	return result;
 }
 
 function topLevelSkills({
@@ -103,7 +121,7 @@ function topLevelSkills({
 	if (includeAll) {
 		return skills;
 	}
-	const topLevelDeps = getPythonTopLevelDeps(context.projectRoot);
+	const topLevelDeps = getTopLevelDeps(context.projectRoot);
 	if (topLevelDeps === null) {
 		return skills;
 	}
@@ -147,6 +165,11 @@ function printContext(context: ProjectContext): void {
 				context.sitePackagesDir,
 				context.projectRoot,
 			)}`,
+		);
+	}
+	if (context.nodeModulesDir) {
+		console.log(
+			`node_modules: ${displayPath(context.nodeModulesDir, context.projectRoot)}`,
 		);
 	}
 }
@@ -509,6 +532,7 @@ function listCommand(options: ListOptions): void {
 				{
 					projectRoot: context.projectRoot,
 					targetEnvironment: context.targetEnvironment ?? "",
+					nodeModules: context.nodeModulesDir ?? "",
 					skills: skills.map((skill) => ({
 						name: skill.name,
 						description: skill.description,
