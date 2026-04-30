@@ -24,13 +24,13 @@ In this case using Python 3.14.
 
 ## In Node.js
 
-A JavaScript library like `@tanstack/react-router` could include a skill at
+A JavaScript library like `@tanstack/react-router` could include a skill at:
 
 ```
 @tanstack/react-router/.agents/skills/tanstack-router/SKILL.md
 ```
 
-The skill would end up located in a directory like:
+When installed, the skill would end up located in a directory like:
 
 ```
 node_modules/@tanstack/react-router/.agents/skills/tanstack-router/SKILL.md
