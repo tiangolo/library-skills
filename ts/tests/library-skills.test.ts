@@ -846,9 +846,11 @@ test("CLI list and scan commands cover JSON, installed, warnings, and empty outp
   await createProgram().parseAsync(["node", "library-skills", "scan"]);
   expect(log).toHaveBeenCalledWith(
     expect.stringContaining(
-      "No target Python environment with site-packages or node_modules was found.",
+      "Run from a project root after installing dependencies",
     ),
   );
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("uv sync"));
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("npm install"));
   expect(log).toHaveBeenCalledWith("No skills found in installed packages.");
 });
 
