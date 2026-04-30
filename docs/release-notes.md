@@ -21,6 +21,7 @@
 
 ### Internal
 
+* 🙈 Update gitignore for docs. PR [#25](https://github.com/tiangolo/library-skills/pull/25) by [@tiangolo](https://github.com/tiangolo).
 * 🔧 Update pyproject.toml, configs, dependencies. PR [#24](https://github.com/tiangolo/library-skills/pull/24) by [@tiangolo](https://github.com/tiangolo).
 * 📄 Add MIT license. PR [#23](https://github.com/tiangolo/library-skills/pull/23) by [@tiangolo](https://github.com/tiangolo).
 * 🔧 Add Citation config. PR [#22](https://github.com/tiangolo/library-skills/pull/22) by [@tiangolo](https://github.com/tiangolo).
