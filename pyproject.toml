@@ -27,7 +27,7 @@ classifiers = [
 dependencies = [
     "rich-toolkit>=0.19.7",
     "tomli>=2.4.1 ; python_version < '3.11'",
-    "typer>=0.15.0",
+    "typer>=0.24.2",
 ]
 
 [project.urls]
