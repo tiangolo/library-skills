@@ -9,6 +9,8 @@ on:
       - opened
       - synchronize
 
+permissions: {}
+
 jobs:
   test-redistribute:
     runs-on: ubuntu-latest
