@@ -2,8 +2,6 @@
 
 ## Latest Changes
 
-* ➕ Add Python dependencies. PR [#4](https://github.com/tiangolo/library-skills/pull/4) by [@tiangolo](https://github.com/tiangolo).
-
 ### Features
 
 * ✨ Add support for scan --json. PR [#44](https://github.com/tiangolo/library-skills/pull/44) by [@tiangolo](https://github.com/tiangolo).
@@ -23,6 +21,7 @@
 
 * ⬆ Bump typer from 0.24.1 to 0.24.2. PR [#33](https://github.com/tiangolo/library-skills/pull/33) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Update uv-build requirement from <0.10.0,>=0.9.11 to >=0.11.7,<0.12.0. PR [#3](https://github.com/tiangolo/library-skills/pull/3) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ➕ Add Python dependencies. PR [#4](https://github.com/tiangolo/library-skills/pull/4) by [@tiangolo](https://github.com/tiangolo).
 
 ### Docs
 
