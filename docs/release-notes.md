@@ -17,6 +17,7 @@
 
 ### Docs
 
+* 📝 Simplify docs, reduce human context needed, history. PR [#32](https://github.com/tiangolo/library-skills/pull/32) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Tweak name and description for consistency. PR [#27](https://github.com/tiangolo/library-skills/pull/27) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Add docs. PR [#26](https://github.com/tiangolo/library-skills/pull/26) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Add docs for contributing and security. PR [#21](https://github.com/tiangolo/library-skills/pull/21) by [@tiangolo](https://github.com/tiangolo).
