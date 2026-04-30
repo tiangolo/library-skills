@@ -12,6 +12,7 @@
 
 ### Refactors
 
+* ♻️ Update TypeScript implementation for consistency with Python. PR [#42](https://github.com/tiangolo/library-skills/pull/42) by [@tiangolo](https://github.com/tiangolo).
 * ♻️ Make Python deduplicate resolved skill dirs. PR [#38](https://github.com/tiangolo/library-skills/pull/38) by [@tiangolo](https://github.com/tiangolo).
 * ♻️ Explain "spacebar" selects. PR [#18](https://github.com/tiangolo/library-skills/pull/18) by [@tiangolo](https://github.com/tiangolo).
 * ♻️ Display relative paths when relative to the project. PR [#16](https://github.com/tiangolo/library-skills/pull/16) by [@tiangolo](https://github.com/tiangolo).
