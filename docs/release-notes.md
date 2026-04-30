@@ -23,6 +23,7 @@
 
 ### Internal
 
+* 👷 Add TypeScript tests to CI. PR [#29](https://github.com/tiangolo/library-skills/pull/29) by [@tiangolo](https://github.com/tiangolo).
 * 🍱 Add social preview images. PR [#28](https://github.com/tiangolo/library-skills/pull/28) by [@tiangolo](https://github.com/tiangolo).
 * 🙈 Update gitignore for docs. PR [#25](https://github.com/tiangolo/library-skills/pull/25) by [@tiangolo](https://github.com/tiangolo).
 * 🔧 Update pyproject.toml, configs, dependencies. PR [#24](https://github.com/tiangolo/library-skills/pull/24) by [@tiangolo](https://github.com/tiangolo).
