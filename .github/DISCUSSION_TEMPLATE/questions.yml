@@ -3,7 +3,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for your interest in Library Agent Skills! 🚀
+        Thanks for your interest in Library Skills! 🚀
 
         Please follow these instructions, fill every question, and do every step. 🙏
   - type: checkboxes
@@ -16,9 +16,9 @@ body:
           required: true
         - label: I used the GitHub search to find a similar question and didn't find it.
           required: true
-        - label: I searched the Library Agent Skills documentation, with the integrated search.
+        - label: I searched the Library Skills documentation, with the integrated search.
           required: true
-        - label: I already searched in Google "How to X with Library Agent Skills" and didn't find any information.
+        - label: I already searched in Google "How to X with Library Skills" and didn't find any information.
           required: true
         - label: I already read and followed all the tutorial in the docs and didn't find an answer.
           required: true

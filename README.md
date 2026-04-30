@@ -2,7 +2,7 @@
   <a href="https://library-skills.io"><img src="https://library-skills.io/img/logo-margin/logo-margin-vector.svg" alt="Library Skills"></a>
 </p>
 <p align="center">
-    <em>Library Skills, AI Agents using libraries as intended, always up to date.</em>
+    <em>Library Skills, AI Agents using libraries, as intended, always up to date.</em>
 </p>
 <p align="center">
 <a href="https://github.com/tiangolo/library-skills/actions?query=workflow%3ATest+event%3Apush+branch%3Amain">
