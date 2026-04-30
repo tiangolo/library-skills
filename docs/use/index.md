@@ -105,3 +105,45 @@ So, if you use Python, you can stay in Python, you don't even need Node.js insta
 And if you use Node.js, you can stay in Node.js, you don't even need Python installed.
 
 In both cases, it will scan *both* the Python and Node.js environments, if available.
+
+## JSON Output
+
+For automation or scripts, use `scan --json` to get the discovered skills as machine-readable JSON:
+
+//// tab | Python uvx
+
+```console
+$ uvx library-skills scan --json
+```
+
+////
+
+//// tab | Node.js npx
+
+```console
+$ npx library-skills scan --json
+```
+
+////
+
+The output includes the project root, detected Python environment, detected `node_modules` directory, discovered skills, and any warnings.
+
+Use `list --json` to include the current installation status too:
+
+//// tab | Python uvx
+
+```console
+$ uvx library-skills list --json
+```
+
+////
+
+//// tab | Node.js npx
+
+```console
+$ npx library-skills list --json
+```
+
+////
+
+The `list --json` output has the same fields as `scan --json`, plus an `installed` array with installed skill targets and status.
