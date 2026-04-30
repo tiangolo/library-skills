@@ -21,6 +21,7 @@
 
 ### Internal
 
+* 📄 Add MIT license. PR [#23](https://github.com/tiangolo/library-skills/pull/23) by [@tiangolo](https://github.com/tiangolo).
 * 🔧 Add Citation config. PR [#22](https://github.com/tiangolo/library-skills/pull/22) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Tweak CI configs. PR [#19](https://github.com/tiangolo/library-skills/pull/19) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Update CI for docs. PR [#11](https://github.com/tiangolo/library-skills/pull/11) by [@tiangolo](https://github.com/tiangolo).
