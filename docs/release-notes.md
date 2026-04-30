@@ -17,6 +17,7 @@
 
 ### Docs
 
+* 📝 Add dark-mode logo. PR [#37](https://github.com/tiangolo/library-skills/pull/37) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Add CLI reference docs. PR [#36](https://github.com/tiangolo/library-skills/pull/36) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Tweak wording. PR [#35](https://github.com/tiangolo/library-skills/pull/35) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Simplify docs, reduce human context needed, history. PR [#32](https://github.com/tiangolo/library-skills/pull/32) by [@tiangolo](https://github.com/tiangolo).
