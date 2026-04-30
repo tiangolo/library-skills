@@ -49,7 +49,7 @@ dev = [
     "zizmor >=1.23.1",
 ]
 tests = [
-    "coverage[toml]>=7.13",
+    "coverage[toml]>=7.13.5",
     "ty>=0.0.32",
     "pytest>=9.0.0",
     "pytest-cov>=4.0.0",
