@@ -23,6 +23,7 @@
 
 ### Internal
 
+* 👷 Add CI publishing for TypeScript. PR [#30](https://github.com/tiangolo/library-skills/pull/30) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Add TypeScript tests to CI. PR [#29](https://github.com/tiangolo/library-skills/pull/29) by [@tiangolo](https://github.com/tiangolo).
 * 🍱 Add social preview images. PR [#28](https://github.com/tiangolo/library-skills/pull/28) by [@tiangolo](https://github.com/tiangolo).
 * 🙈 Update gitignore for docs. PR [#25](https://github.com/tiangolo/library-skills/pull/25) by [@tiangolo](https://github.com/tiangolo).
