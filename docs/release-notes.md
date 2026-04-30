@@ -9,6 +9,10 @@
 * ✨ Add TypeScript implementation. PR [#15](https://github.com/tiangolo/library-skills/pull/15) by [@tiangolo](https://github.com/tiangolo).
 * ✨ Implement Library Agent Skills in Python. PR [#2](https://github.com/tiangolo/library-skills/pull/2) by [@tiangolo](https://github.com/tiangolo).
 
+### Refactors
+
+* ♻️ Display relative paths when relative to the project. PR [#16](https://github.com/tiangolo/library-skills/pull/16) by [@tiangolo](https://github.com/tiangolo).
+
 ### Internal
 
 * 👷 Update CI for docs. PR [#11](https://github.com/tiangolo/library-skills/pull/11) by [@tiangolo](https://github.com/tiangolo).
