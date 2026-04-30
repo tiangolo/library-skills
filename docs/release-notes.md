@@ -38,6 +38,7 @@
 
 ### Internal
 
+* ⬆️ Upgrade TypeScript and tsup configs. PR [#50](https://github.com/tiangolo/library-skills/pull/50) by [@tiangolo](https://github.com/tiangolo).
 * ⬆ Bump ty from 0.0.30 to 0.0.32. PR [#14](https://github.com/tiangolo/library-skills/pull/14) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump ruff from 0.15.10 to 0.15.11. PR [#13](https://github.com/tiangolo/library-skills/pull/13) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * 👷 Update new issue template. PR [#48](https://github.com/tiangolo/library-skills/pull/48) by [@tiangolo](https://github.com/tiangolo).
