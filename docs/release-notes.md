@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Internal
+
+* 🔧 Tweak TypeScript package publishing. PR [#52](https://github.com/tiangolo/library-skills/pull/52) by [@tiangolo](https://github.com/tiangolo).
+
 ## 0.0.2 (2026-04-30)
 
 ### Features
