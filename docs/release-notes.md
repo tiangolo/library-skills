@@ -23,6 +23,7 @@
 
 ### Internal
 
+* 👷 Update workflows with zizmor. PR [#31](https://github.com/tiangolo/library-skills/pull/31) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Add CI publishing for TypeScript. PR [#30](https://github.com/tiangolo/library-skills/pull/30) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Add TypeScript tests to CI. PR [#29](https://github.com/tiangolo/library-skills/pull/29) by [@tiangolo](https://github.com/tiangolo).
 * 🍱 Add social preview images. PR [#28](https://github.com/tiangolo/library-skills/pull/28) by [@tiangolo](https://github.com/tiangolo).
