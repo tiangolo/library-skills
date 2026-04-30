@@ -19,7 +19,7 @@
   "module": "./ts/dist/index.js",
   "types": "./ts/dist/index.d.ts",
   "bin": {
-    "library-skills": "./ts/dist/cli.js"
+    "library-skills": "ts/dist/cli.js"
   },
   "files": [
     "ts/dist"
@@ -48,5 +48,9 @@
     "commander": "^14.0.3",
     "csv-parse": "^6.2.1",
     "smol-toml": "^1.6.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tiangolo/library-skills.git"
   }
 }
