@@ -103,7 +103,9 @@ function scanContext(context: ProjectContext): ScanResult {
 	}
 	if (context.sitePackagesDir === null && context.nodeModulesDir === null) {
 		result.warnings.push(
-			"No target Python environment with site-packages or node_modules was found.",
+			"No target Python environment with site-packages or node_modules was " +
+				"found. Run from a project root after installing dependencies, for " +
+				"example with 'uv sync' for Python or 'npm install' for Node.js.",
 		);
 	}
 	return result;

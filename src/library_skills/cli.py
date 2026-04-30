@@ -114,7 +114,9 @@ def _scan_context(context: ProjectContext) -> ScanResult:
         result.warnings.extend(node_result.warnings)
     if context.site_packages_dir is None and context.node_modules_dir is None:
         result.warnings.append(
-            "No target Python environment with site-packages or node_modules was found."
+            "No target Python environment with site-packages or node_modules was "
+            "found. Run from a project root after installing dependencies, for "
+            "example with 'uv sync' for Python or 'npm install' for Node.js."
         )
     result.environment_path = context.target_environment
     return result

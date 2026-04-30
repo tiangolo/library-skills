@@ -414,10 +414,9 @@ def test_scan_without_target_environment_prints_warning(tmp_path, monkeypatch):
     result = runner.invoke(app, ["scan"])
 
     assert result.exit_code == 0
-    assert (
-        "No target Python environment with site-packages or node_modules"
-        in result.output
-    )
+    assert "Run from a project root after installing dependencies" in result.output
+    assert "uv sync" in result.output
+    assert "npm install" in result.output
 
 
 def test_default_check_without_environment_reports_no_discovered_skills(
