@@ -2,7 +2,7 @@
 
 import checkbox from "@inquirer/checkbox";
 import { Command } from "commander";
-import { statSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getTopLevelDeps } from "./deps.js";
@@ -768,10 +768,11 @@ function exists(path: string): boolean {
 	}
 }
 
-/* v8 ignore next 9 -- direct executable entrypoint is exercised by the packaged CLI, not in-process tests. */
+/* v8 ignore next 16 -- direct executable entrypoint is exercised by the packaged CLI, not in-process tests. */
 if (
 	process.argv[1] &&
-	fileURLToPath(import.meta.url) === resolve(process.argv[1])
+	realpathSync(fileURLToPath(import.meta.url)) ===
+		realpathSync(resolve(process.argv[1]))
 ) {
 	main().catch((error: unknown) => {
 		console.error(error);
