@@ -566,7 +566,7 @@ wheels = [
 
 [[package]]
 name = "library-skills"
-version = "0.0.4"
+version = "0.0.5"
 source = { editable = "." }
 dependencies = [
     { name = "rich-toolkit" },

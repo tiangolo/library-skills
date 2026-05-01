@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.5 (2026-05-01)
+
 ### Features
 
 * ✨ Add support for PEP 832, `.venv` redirect files. PR [#55](https://github.com/tiangolo/library-skills/pull/55) by [@tiangolo](https://github.com/tiangolo).
