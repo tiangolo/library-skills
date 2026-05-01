@@ -62,6 +62,64 @@ def test_find_venv_prefers_uv_project_environment(monkeypatch, tmp_path):
     assert find_venv(project) == uv_env
 
 
+def test_find_venv_supports_pep_832_redirect_file(monkeypatch, tmp_path):
+    project = tmp_path / "project"
+    nested = project / "src" / "pkg"
+    nested.mkdir(parents=True)
+    venv = make_venv(tmp_path / "envs" / "project")
+    (project / ".venv").write_text("../envs/project\nignored\n", encoding="utf-8")
+    clear_python_env_vars(monkeypatch)
+
+    assert find_project_root(nested) == project
+    assert find_venv(nested) == venv
+
+
+def test_find_venv_supports_absolute_pep_832_redirect_file(monkeypatch, tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    venv = make_venv(tmp_path / "env")
+    (project / ".venv").write_text(str(venv), encoding="utf-8")
+    clear_python_env_vars(monkeypatch)
+
+    assert find_venv(project) == venv
+
+
+def test_find_venv_ignores_invalid_pep_832_redirect_file(monkeypatch, tmp_path):
+    project = tmp_path / "project"
+    nested = project / "pkg"
+    nested.mkdir(parents=True)
+    (project / ".venv").write_text("missing\n", encoding="utf-8")
+    clear_python_env_vars(monkeypatch)
+
+    assert find_project_root(nested) is None
+    assert find_venv(nested) is None
+
+    (project / ".venv").write_text("", encoding="utf-8")
+    assert find_project_root(nested) is None
+    assert find_venv(nested) is None
+
+
+def test_find_venv_ignores_invalid_pep_832_entries(monkeypatch, tmp_path):
+    project = tmp_path / "project"
+    nested = project / "pkg"
+    nested.mkdir(parents=True)
+    (project / ".venv").mkdir()
+    clear_python_env_vars(monkeypatch)
+
+    assert find_project_root(nested) is None
+    assert find_venv(nested) is None
+
+    (project / ".venv").rmdir()
+    (project / ".venv").write_text("env\n", encoding="utf-8")
+
+    def read_text(self: Path, *args, **kwargs) -> str:
+        raise OSError
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    assert find_project_root(nested) is None
+    assert find_venv(nested) is None
+
+
 def test_find_venv_ignores_virtual_env_outside_project(monkeypatch, tmp_path):
     project = tmp_path / "project"
     project.mkdir()

@@ -8,7 +8,7 @@ def find_project_root(cwd: Path) -> Path | None:
         if (
             (directory / "pyproject.toml").is_file()
             or (directory / "uv.lock").is_file()
-            or (directory / ".venv" / "pyvenv.cfg").is_file()
+            or _venv_from_dot_venv(directory) is not None
             or (directory / "package.json").is_file()
             or (directory / "node_modules").is_dir()
         ):
@@ -40,11 +40,11 @@ def find_venv(cwd: Path | None = None) -> Path | None:
         if (path / "pyvenv.cfg").is_file():
             return path
 
-    # 2. Nearest project .venv
+    # 2. Nearest project .venv directory or PEP 832 redirect file
     for directory in [cwd, *cwd.parents]:
-        dot_venv = directory / ".venv"
-        if dot_venv.is_dir() and (dot_venv / "pyvenv.cfg").is_file():
-            return dot_venv
+        venv = _venv_from_dot_venv(directory)
+        if venv is not None:
+            return venv
 
     # 3. VIRTUAL_ENV, but avoid uvx/tool environments outside the project tree
     virtual_env = os.environ.get("VIRTUAL_ENV")
@@ -101,3 +101,31 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _venv_from_dot_venv(project_root: Path) -> Path | None:
+    dot_venv = project_root / ".venv"
+    if dot_venv.is_dir():
+        if (dot_venv / "pyvenv.cfg").is_file():
+            return dot_venv
+        return None
+    if dot_venv.is_file():
+        return _read_venv_redirect_file(dot_venv)
+    return None
+
+
+def _read_venv_redirect_file(path: Path) -> Path | None:
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    redirect = content.splitlines()[0] if content.splitlines() else ""
+    if not redirect:
+        return None
+    venv = Path(redirect)
+    if not venv.is_absolute():
+        venv = path.parent / venv
+    venv = venv.resolve()
+    if (venv / "pyvenv.cfg").is_file():
+        return venv
+    return None
