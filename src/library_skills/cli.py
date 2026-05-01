@@ -69,6 +69,14 @@ class ProjectContext:
 
 
 @dataclass(frozen=True)
+class SkillTarget:
+    """A pairing of a discovered skill with the target it would be installed into."""
+
+    skill: Skill
+    target: InstallTarget
+
+
+@dataclass(frozen=True)
 class InstalledStatus:
     target: InstallTarget
     name: str
@@ -221,13 +229,23 @@ def _scan_json_payload(
     }
 
 
-def _select_skills_interactive(skills: list[Skill]) -> list[Skill]:
-    """Let the user interactively select which skills to install."""
+def _select_skills_interactive(
+    pairs: list[SkillTarget],
+) -> list[SkillTarget]:
+    """Let the user interactively select which skill/target pairs to install."""
     return _get_rich_toolkit().ask(
         "Select skills to install (press Space to select, Enter to confirm):",
         options=[
-            Option({"name": f"{skill.name} ({skill.package_name})", "value": skill})
-            for skill in skills
+            Option(
+                {
+                    "name": (
+                        f"{pair.skill.name} ({pair.skill.package_name}) "
+                        f"[{pair.target.name}]"
+                    ),
+                    "value": pair,
+                }
+            )
+            for pair in pairs
         ],
         allow_filtering=True,
         multiple=True,
@@ -378,25 +396,25 @@ def _select_installed_skills_interactive(
 
 def _install_selected(
     *,
-    skills: list[Skill],
-    targets: list[InstallTarget],
+    selections: list[SkillTarget],
     project_root: Path,
     copy: bool = False,
 ) -> int:
     installed_count = 0
-    for target in targets:
-        for skill in skills:
-            try:
-                dest = install_skill(skill, target.path, copy=copy)
-            except InstallError as e:
-                console.print(f"[error]Skipped {skill.name}:[/] {e}")
-                continue
-            method = "Copied" if copy else "Symlinked"
-            console.print(
-                f"{method}: [bold]{skill.name}[/bold] ({skill.package_name}) -> "
-                f"{_display_path(dest, project_root)}"
-            )
-            installed_count += 1
+    for selection in selections:
+        skill = selection.skill
+        target = selection.target
+        try:
+            dest = install_skill(skill, target.path, copy=copy)
+        except InstallError as e:
+            console.print(f"[error]Skipped {skill.name} ({target.name}):[/] {e}")
+            continue
+        method = "Copied" if copy else "Symlinked"
+        console.print(
+            f"{method}: [bold]{skill.name}[/bold] ({skill.package_name}) "
+            f"[{target.name}] -> {_display_path(dest, project_root)}"
+        )
+        installed_count += 1
     return installed_count
 
 
@@ -461,24 +479,29 @@ def _sync(
             if skill is not None:
                 install_skill(skill, status.target.path)
 
-    selected = _filter_installable_skills(
+    filtered_skills = _filter_installable_skills(
         candidate_skills,
         selected_names=selected_names,
         include_all=include_all,
     )
+    selected: list[SkillTarget] = [
+        SkillTarget(skill=skill, target=target)
+        for target in targets
+        for skill in filtered_skills
+    ]
     if not selected and not yes and not selected_names and not include_all:
-        new_skills = [
-            status.skill
+        new_pairs = [
+            SkillTarget(skill=status.skill, target=status.target)
             for status in visible_statuses
             if status.status == "new" and status.skill is not None
         ]
-        if new_skills:
-            selected = _select_skills_interactive(new_skills)
+        if new_pairs:
+            selected = _select_skills_interactive(new_pairs)
 
     if selected:
         console.print()
         installed_count = _install_selected(
-            skills=selected, targets=targets, project_root=context.project_root
+            selections=selected, project_root=context.project_root
         )
         console.print()
         console.print(f"Installed {installed_count} skill target(s).")
@@ -644,20 +667,30 @@ def install(
     targets = get_target_dirs(context.project_root, include_claude=include_claude)
 
     _print_warnings(result.warnings)
-    selected = _filter_installable_skills(
+    filtered_skills = _filter_installable_skills(
         skills,
         selected_names=selected_names or [],
         include_all=include_all,
     )
+    selected: list[SkillTarget] = [
+        SkillTarget(skill=skill, target=target)
+        for target in targets
+        for skill in filtered_skills
+    ]
     if not selected and not yes:
-        selected = _select_skills_interactive(skills)
+        pairs = [
+            SkillTarget(skill=skill, target=target)
+            for target in targets
+            for skill in skills
+        ]
+        selected = _select_skills_interactive(pairs)
 
     if not selected:
         console.print("No skills selected.")
         return
 
     installed_count = _install_selected(
-        skills=selected, targets=targets, project_root=context.project_root, copy=copy
+        selections=selected, project_root=context.project_root, copy=copy
     )
     console.print()
     console.print(f"Installed {installed_count} skill target(s).")
