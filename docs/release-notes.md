@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.4 (2026-05-01)
+
 ### Fixes
 
 * 🐛 Fix npx library-skills. PR [#54](https://github.com/tiangolo/library-skills/pull/54) by [@tiangolo](https://github.com/tiangolo).
