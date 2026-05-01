@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import checkbox from "@inquirer/checkbox";
 import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -541,6 +541,37 @@ test("resolves project virtualenvs and site-packages", () => {
   writeFileSync(join(fileMarkerProject, "node_modules"), "not a directory");
   expect(findProjectRoot(fileMarkerNested)).toBeNull();
   expect(findNodeModules(fileMarkerNested)).toBeNull();
+});
+
+test("supports PEP 832 .venv redirect files", () => {
+  const project = tempDir();
+  const nested = join(project, "src", "pkg");
+  const relativeVenv = join(dirname(project), "envs", "project");
+  mkdirSync(nested, { recursive: true });
+  mkdirSync(relativeVenv, { recursive: true });
+  writeFileSync(join(relativeVenv, "pyvenv.cfg"), "");
+  writeFileSync(join(project, ".venv"), "../envs/project\r\nignored\n");
+
+  expect(findProjectRoot(nested)).toBe(project);
+  expect(findVenv(nested)).toBe(relativeVenv);
+
+  const absoluteProject = tempDir();
+  const absoluteVenv = join(tempDir(), "env");
+  mkdirSync(absoluteVenv, { recursive: true });
+  writeFileSync(join(absoluteVenv, "pyvenv.cfg"), "");
+  writeFileSync(join(absoluteProject, ".venv"), absoluteVenv);
+  expect(findVenv(absoluteProject)).toBe(absoluteVenv);
+
+  const invalidProject = tempDir();
+  const invalidNested = join(invalidProject, "pkg");
+  mkdirSync(invalidNested, { recursive: true });
+  writeFileSync(join(invalidProject, ".venv"), "missing\n");
+  expect(findProjectRoot(invalidNested)).toBeNull();
+  expect(findVenv(invalidNested)).toBeNull();
+
+  writeFileSync(join(invalidProject, ".venv"), "");
+  expect(findProjectRoot(invalidNested)).toBeNull();
+  expect(findVenv(invalidNested)).toBeNull();
 });
 
 test("handles alternate and missing Python environment discovery paths", () => {

@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 
 export function findProjectRoot(cwd: string): string | null {
@@ -6,7 +6,7 @@ export function findProjectRoot(cwd: string): string | null {
     if (
         isFile(join(directory, "pyproject.toml")) ||
         isFile(join(directory, "uv.lock")) ||
-        isFile(join(directory, ".venv", "pyvenv.cfg")) ||
+        venvFromDotVenv(directory) !== null ||
         isFile(join(directory, "package.json")) ||
         isDirectory(join(directory, "node_modules"))
     ) {
@@ -30,9 +30,9 @@ export function findVenv(cwd = process.cwd()): string | null {
   }
 
   for (const directory of ancestors(cwd)) {
-    const dotVenv = join(directory, ".venv");
-    if (isVenvDir(dotVenv)) {
-      return dotVenv;
+    const venv = venvFromDotVenv(directory);
+    if (venv !== null) {
+      return venv;
     }
   }
 
@@ -86,6 +86,33 @@ export function findNodeModules(cwd = process.cwd()): string | null {
 
 function isVenvDir(directory: string): boolean {
   return isFile(join(directory, "pyvenv.cfg"));
+}
+
+function venvFromDotVenv(projectRoot: string): string | null {
+  const dotVenv = join(projectRoot, ".venv");
+  if (isDirectory(dotVenv)) {
+    return isVenvDir(dotVenv) ? dotVenv : null;
+  }
+  if (isFile(dotVenv)) {
+    return readVenvRedirectFile(dotVenv);
+  }
+  return null;
+}
+
+function readVenvRedirectFile(path: string): string | null {
+  let content: string;
+  try {
+    content = readFileSync(path, "utf8");
+  } catch {
+    /* v8 ignore next -- covers a race where .venv disappears between stat and read. */
+    return null;
+  }
+  const redirect = content.split(/\r?\n/, 1)[0];
+  if (!redirect) {
+    return null;
+  }
+  const venv = isAbsolute(redirect) ? redirect : join(dirname(path), redirect);
+  return isVenvDir(venv) ? venv : null;
 }
 
 function ancestors(start: string): string[] {

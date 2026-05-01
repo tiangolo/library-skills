@@ -31,7 +31,7 @@ If you want to learn more, continue reading.
 This command will:
 
 * Check the **dependencies** you have defined, in `pyproject.toml` or `package.json`.
-* Scan your project installation **environment**, e.g. `.venv` in Python or `node_modules` in Node.js.
+* Scan your project installation **environment**, e.g. a `.venv` directory or PEP 832 `.venv` redirect file in Python, or `node_modules` in Node.js.
 * Find the **skills** available from the libraries you have installed, by default, filtered by your direct dependencies.
 * Ask you which skills you want to **install**.
 * For each skill you select, it will create a **symbolic link** in the `.agents` directory. If you are in a system that doesn't support symbolic links, you can make it copy the file with `--copy`.
