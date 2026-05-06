@@ -54,6 +54,7 @@ This will work with AI Agents that support the `.agents` directory (most of them
 * Pi
 * Antigravity
 * OpenCode
+* Eca
 
 ### Claude Code
 
