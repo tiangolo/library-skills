@@ -25,22 +25,22 @@ def get_python_top_level_deps(project_root: Path) -> set[str] | None:
     except (OSError, tomllib.TOMLDecodeError):
         return None
 
-    deps: set[str] = set()
     project = data.get("project", {})
     if not isinstance(project, dict):
-        return deps
+        return set()
 
-    dependencies = project.get("dependencies", [])
-    if isinstance(dependencies, list):
-        _extract_deps_from_specs(dependencies, deps)
-
+    dependencies = [dep for dep in project.get("dependencies", []) if isinstance(dep, str)]
     optional_dependencies = project.get("optional-dependencies", {})
-    if isinstance(optional_dependencies, dict):
-        for group_dependencies in optional_dependencies.values():
-            if isinstance(group_dependencies, list):
-                _extract_deps_from_specs(group_dependencies, deps)
 
-    return deps
+    local_dependency_groups = data.get("dependency-groups", {})
+
+    extracted_deps = set().union(
+        _extract_deps_from_specs(dependencies),
+        _extract_deps_groups_from_specs(optional_dependencies),
+        _extract_deps_groups_from_specs(local_dependency_groups),
+    )
+
+    return extracted_deps
 
 
 def get_node_top_level_deps(project_root: Path) -> set[str] | None:
@@ -88,11 +88,30 @@ def get_top_level_deps(project_root: Path) -> set[str] | None:
     return set().union(*dependency_sets)
 
 
-def _extract_deps_from_specs(dep_specs: list[object], deps: set[str]) -> None:
+def _extract_deps_from_specs(dep_specs: list[str]) -> set[str]:
     """Extract package names from dependency spec strings."""
+    deps: set[str] = set()
+
     for dep_spec in dep_specs:
         if not isinstance(dep_spec, str):
             continue
         pkg_name = re.split(r"[>=<!\[;,\s]", dep_spec)[0].strip()
         if pkg_name and not pkg_name.startswith("#"):
             deps.add(_normalize_package_name(pkg_name))
+
+    return deps
+
+
+def _extract_deps_groups_from_specs(groups: list[object]) -> set[str]:
+    deps: set[str] = set()
+
+    if not isinstance(groups, dict):
+        return deps
+
+    for group_dependencies in groups.values():
+        if not isinstance(group_dependencies, list):
+            continue
+
+        deps = deps | _extract_deps_from_specs(group_dependencies)
+
+    return deps

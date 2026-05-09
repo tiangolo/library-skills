@@ -30,6 +30,45 @@ dev = [
     }
 
 
+def test_get_python_top_level_deps_normalizes_required_optional_and_local_deps(tmp_path):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """
+[project]
+dependencies = [
+    "Rich-Toolkit>=0.19",
+    "pydantic[email]>=2 ; python_version >= '3.10'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "PyTest_Cov>=4",
+]
+
+[dependency-groups]
+dev = [
+  "polylith-cli>=1.47.2",
+]
+test = [
+  "pytest>=9.0.2",
+]
+lint = [
+  "ruff>=0.15.0",
+]
+""",
+        encoding="utf-8",
+    )
+
+    assert get_python_top_level_deps(tmp_path) == {
+        "rich-toolkit",
+        "pydantic",
+        "pytest-cov",
+        "polylith-cli",
+        "ruff",
+        "pytest"
+    }
+
+
 def test_get_python_top_level_deps_returns_none_without_pyproject(tmp_path):
     assert get_python_top_level_deps(tmp_path) is None
 
