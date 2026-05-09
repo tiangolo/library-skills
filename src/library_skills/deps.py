@@ -95,7 +95,9 @@ def _extract_deps_from_specs(dep_specs: list[str]) -> set[str]:
     for dep_spec in dep_specs:
         if not isinstance(dep_spec, str):
             continue
-        pkg_name = re.split(r"[>=<!\[;,\s]", dep_spec)[0].strip()
+
+        pkg_name = re.split(r"[>=<!\[;~,\s]", dep_spec)[0].strip()
+
         if pkg_name and not pkg_name.startswith("#"):
             deps.add(_normalize_package_name(pkg_name))
 
