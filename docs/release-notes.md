@@ -4,6 +4,7 @@
 
 ### Internal
 
+* ⬆ Bump prek from 0.3.10 to 0.3.11. PR [#64](https://github.com/tiangolo/library-skills/pull/64) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump ty from 0.0.32 to 0.0.35. PR [#68](https://github.com/tiangolo/library-skills/pull/68) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump urllib3 from 2.6.3 to 2.7.0. PR [#71](https://github.com/tiangolo/library-skills/pull/71) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆️ Upgrade Zensical. PR [#76](https://github.com/tiangolo/library-skills/pull/76) by [@tiangolo](https://github.com/tiangolo).
