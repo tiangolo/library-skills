@@ -111,7 +111,7 @@ markdown_extensions:
 extra:
   social:
     - icon: octicons/mark-github-24
-      link: https://github.com/fastapi/library-skills
+      link: https://github.com/tiangolo/library-skills
     - icon: fontawesome/brands/x-twitter
       link: https://x.com/tiangolo
     - icon: fontawesome/brands/bluesky
