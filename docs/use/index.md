@@ -5,7 +5,7 @@ In your project directory, run:
 //// tab | Python uvx
 
 ```console
-$ uvx library-skills
+uvx library-skills
 ```
 
 ////
@@ -13,7 +13,7 @@ $ uvx library-skills
 //// tab | Node.js npx
 
 ```console
-$ npx library-skills
+npx library-skills
 ```
 
 ////
@@ -62,7 +62,7 @@ If you are using Claude Code, it doesn't support the `.agents` directory, only t
 //// tab | Python uvx
 
 ```console
-$ uvx library-skills --claude
+uvx library-skills --claude
 ```
 
 ////
@@ -70,7 +70,7 @@ $ uvx library-skills --claude
 //// tab | Node.js npx
 
 ```console
-$ npx library-skills --claude
+npx library-skills --claude
 ```
 
 ////
@@ -113,7 +113,7 @@ For automation or scripts, use `scan --json` to get the discovered skills as mac
 //// tab | Python uvx
 
 ```console
-$ uvx library-skills scan --json
+uvx library-skills scan --json
 ```
 
 ////
@@ -121,7 +121,7 @@ $ uvx library-skills scan --json
 //// tab | Node.js npx
 
 ```console
-$ npx library-skills scan --json
+npx library-skills scan --json
 ```
 
 ////
@@ -133,7 +133,7 @@ Use `list --json` to include the current installation status too:
 //// tab | Python uvx
 
 ```console
-$ uvx library-skills list --json
+uvx library-skills list --json
 ```
 
 ////
@@ -141,7 +141,7 @@ $ uvx library-skills list --json
 //// tab | Node.js npx
 
 ```console
-$ npx library-skills list --json
+npx library-skills list --json
 ```
 
 ////
