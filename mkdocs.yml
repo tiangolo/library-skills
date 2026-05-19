@@ -72,6 +72,7 @@ markdown_extensions:
     targets:
       include:
         - "*"
+  zensical.extensions.macros:
   # Python Markdown
   abbr:
   attr_list:
@@ -100,17 +101,6 @@ markdown_extensions:
 
   # pymdownx blocks
   pymdownx.blocks.admonition:
-    types:
-    - note
-    - attention
-    - caution
-    - danger
-    - error
-    - tip
-    - hint
-    - warning
-    # Custom types
-    - info
   pymdownx.blocks.details:
   pymdownx.blocks.tab:
     alternate_style: True
@@ -120,14 +110,14 @@ markdown_extensions:
 
 extra:
   social:
-  - icon: octicons/mark-github-24
-    link: https://github.com/tiangolo/library-skills
-  - icon: fontawesome/brands/twitter
-    link: https://twitter.com/tiangolo
-  - icon: fontawesome/brands/linkedin
-    link: https://www.linkedin.com/in/tiangolo
-  - icon: fontawesome/solid/globe
-    link: https://tiangolo.com
+    - icon: octicons/mark-github-24
+      link: https://github.com/fastapi/library-skills
+    - icon: fontawesome/brands/x-twitter
+      link: https://x.com/tiangolo
+    - icon: fontawesome/brands/bluesky
+      link: https://bsky.app/profile/tiangolo.com
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/tiangolo
 
 extra_css:
   - css/termynal.css
@@ -136,3 +126,6 @@ extra_css:
 extra_javascript:
   - js/termynal.js
   - js/custom.js
+
+validation:
+  unresolved_references: false
