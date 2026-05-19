@@ -478,7 +478,7 @@ def test_install_interactive_selection_installs_selected_skill(
     )
     monkeypatch.chdir(project)
 
-    with patch.object(cli, "_select_skills_interactive", lambda skills: skills):
+    with patch.object(cli, "_select_skills_interactive", lambda pairs: pairs):
         result = runner.invoke(app, ["install"])
 
     installed = project / ".agents" / "skills" / "demo-skill"
@@ -501,7 +501,7 @@ def test_default_command_interactive_selection_installs_selected_skill(
     )
     monkeypatch.chdir(project)
 
-    with patch.object(cli, "_select_skills_interactive", lambda skills: skills):
+    with patch.object(cli, "_select_skills_interactive", lambda pairs: pairs):
         result = runner.invoke(app)
 
     installed = project / ".agents" / "skills" / "demo-skill"
@@ -509,6 +509,34 @@ def test_default_command_interactive_selection_installs_selected_skill(
     assert "Installed 1 skill target(s)." in result.output
     assert installed.is_symlink()
     assert installed.resolve() == skill_dir.resolve()
+
+
+def test_claude_interactive_selection_installs_only_chosen_target(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    monkeypatch.chdir(project)
+
+    def _pick_claude_only(pairs):
+        return [pair for pair in pairs if pair.target.name == "claude-compatible"]
+
+    with patch.object(cli, "_select_skills_interactive", _pick_claude_only):
+        result = runner.invoke(app, ["--claude"])
+
+    universal = project / ".agents" / "skills" / "demo-skill"
+    claude = project / ".claude" / "skills" / "demo-skill"
+    assert result.exit_code == 0
+    assert "Installed 1 skill target(s)." in result.output
+    assert claude.is_symlink()
+    assert not universal.exists()
 
 
 def test_remove_interactive_selection_removes_selected_skill(tmp_path, monkeypatch):
@@ -597,6 +625,7 @@ def test_filter_installable_skills_skips_collisions(tmp_path):
 def test_select_helpers_use_rich_toolkit(monkeypatch, tmp_path):
     skill = make_cli_skill(tmp_path)
     target = cli.InstallTarget("universal", tmp_path / ".agents" / "skills")
+    pair = cli.SkillTarget(skill=skill, target=target)
     status = cli.InstalledStatus(
         target=target,
         name=skill.name,
@@ -606,9 +635,9 @@ def test_select_helpers_use_rich_toolkit(monkeypatch, tmp_path):
         status="up to date",
         skill=skill,
     )
-    monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkit([skill]))
+    monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkit([pair]))
 
-    assert cli._select_skills_interactive([skill]) == [skill]
+    assert cli._select_skills_interactive([pair]) == [pair]
 
     monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkit([status]))
 
@@ -638,9 +667,10 @@ def test_install_selected_continues_after_install_error(tmp_path):
     skill = make_cli_skill(tmp_path)
     target = cli.InstallTarget("universal", tmp_path / ".agents" / "skills")
     (target.path / skill.name).mkdir(parents=True)
+    pair = cli.SkillTarget(skill=skill, target=target)
 
     assert (
-        cli._install_selected(skills=[skill], targets=[target], project_root=tmp_path)
+        cli._install_selected(selections=[pair], project_root=tmp_path)
         == 0
     )
 
