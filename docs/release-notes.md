@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Upgrades
+
+* ⬆ Bump commander from 14.0.3 to 15.0.0. PR [#99](https://github.com/tiangolo/library-skills/pull/99) by [@dependabot[bot]](https://github.com/apps/dependabot).
+
 ### Docs
 
 * 📝 Update security policy. PR [#92](https://github.com/tiangolo/library-skills/pull/92) by [@tiangolo](https://github.com/tiangolo).
