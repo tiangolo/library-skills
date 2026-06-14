@@ -12,6 +12,7 @@
 
 ### Internal
 
+* ⬆ Bump pymdown-extensions from 10.21.2 to 10.21.3. PR [#90](https://github.com/tiangolo/library-skills/pull/90) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump idna from 3.13 to 3.15. PR [#91](https://github.com/tiangolo/library-skills/pull/91) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump @inquirer/checkbox from 5.1.4 to 5.2.1. PR [#98](https://github.com/tiangolo/library-skills/pull/98) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump rich-toolkit from 0.19.7 to 0.19.10. PR [#96](https://github.com/tiangolo/library-skills/pull/96) by [@dependabot[bot]](https://github.com/apps/dependabot).
