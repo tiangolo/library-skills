@@ -8,6 +8,7 @@
 
 ### Internal
 
+* ⬆ Bump the python-packages group across 1 directory with 8 updates. PR [#101](https://github.com/tiangolo/library-skills/pull/101) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * 🔥 Remove configs now stored in central GitHub repo. PR [#93](https://github.com/tiangolo/library-skills/pull/93) by [@tiangolo](https://github.com/tiangolo).
 * 🛠️ Update MkDocs socials. PR [#89](https://github.com/tiangolo/library-skills/pull/89) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Update Dependabot. PR [#85](https://github.com/tiangolo/library-skills/pull/85) by [@tiangolo](https://github.com/tiangolo).
