@@ -12,6 +12,7 @@
 
 ### Internal
 
+* ⬆ Bump @inquirer/checkbox from 5.1.4 to 5.2.1. PR [#98](https://github.com/tiangolo/library-skills/pull/98) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump rich-toolkit from 0.19.7 to 0.19.10. PR [#96](https://github.com/tiangolo/library-skills/pull/96) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump the npm-packages group across 1 directory with 3 updates. PR [#88](https://github.com/tiangolo/library-skills/pull/88) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump the github-actions group across 1 directory with 5 updates. PR [#100](https://github.com/tiangolo/library-skills/pull/100) by [@dependabot[bot]](https://github.com/apps/dependabot).
