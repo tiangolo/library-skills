@@ -2,12 +2,23 @@
 
 ## Latest Changes
 
+### Upgrades
+
+* ⬆ Bump commander from 14.0.3 to 15.0.0. PR [#99](https://github.com/tiangolo/library-skills/pull/99) by [@dependabot[bot]](https://github.com/apps/dependabot).
+
 ### Docs
 
 * 📝 Update security policy. PR [#92](https://github.com/tiangolo/library-skills/pull/92) by [@tiangolo](https://github.com/tiangolo).
 
 ### Internal
 
+* ⬆ Bump pymdown-extensions from 10.21.2 to 10.21.3. PR [#90](https://github.com/tiangolo/library-skills/pull/90) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump idna from 3.13 to 3.15. PR [#91](https://github.com/tiangolo/library-skills/pull/91) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump @inquirer/checkbox from 5.1.4 to 5.2.1. PR [#98](https://github.com/tiangolo/library-skills/pull/98) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump rich-toolkit from 0.19.7 to 0.19.10. PR [#96](https://github.com/tiangolo/library-skills/pull/96) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump the npm-packages group across 1 directory with 3 updates. PR [#88](https://github.com/tiangolo/library-skills/pull/88) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump the github-actions group across 1 directory with 5 updates. PR [#100](https://github.com/tiangolo/library-skills/pull/100) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump the python-packages group across 1 directory with 8 updates. PR [#101](https://github.com/tiangolo/library-skills/pull/101) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * 🔥 Remove configs now stored in central GitHub repo. PR [#93](https://github.com/tiangolo/library-skills/pull/93) by [@tiangolo](https://github.com/tiangolo).
 * 🛠️ Update MkDocs socials. PR [#89](https://github.com/tiangolo/library-skills/pull/89) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Update Dependabot. PR [#85](https://github.com/tiangolo/library-skills/pull/85) by [@tiangolo](https://github.com/tiangolo).
