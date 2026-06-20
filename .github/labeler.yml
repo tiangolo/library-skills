@@ -5,6 +5,8 @@ docs:
         - docs/**
       - all-globs-to-all-files:
         - '!pyproject.toml'
+        - '!src/**'
+        - '!ts/**'
 
 internal:
   - all:
