@@ -1312,6 +1312,37 @@ def test_default_command_interactive_selection_installs_selected_skill(
     assert installed.resolve() == skill_dir.resolve()
 
 
+def test_default_command_copy_installs_selected_skill_as_directory(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    monkeypatch.chdir(project)
+
+    with (
+        patch.object(cli, "_select_skills_interactive", lambda skills: skills),
+        patch.object(
+            cli,
+            "_select_targets_interactive",
+            lambda project_root, default_targets: default_targets,
+        ),
+    ):
+        result = runner.invoke(app, ["--copy"])
+
+    installed = project / ".agents" / "skills" / "demo-skill"
+    assert result.exit_code == 0
+    assert "Installed 1 skill target(s)." in result.output
+    assert installed.is_dir()
+    assert not installed.is_symlink()
+
+
 def test_default_command_deduplicates_new_skills_across_targets(
     tmp_path,
     monkeypatch,

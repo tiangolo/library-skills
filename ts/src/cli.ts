@@ -79,6 +79,7 @@ interface GlobalOptions {
 	check?: boolean;
 	all?: boolean;
 	skill?: string[];
+	copy?: boolean;
 }
 
 interface InstallOptions {
@@ -805,6 +806,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 			skills: selected,
 			targets,
 			projectRoot: context.projectRoot,
+			copy: options.copy,
 		});
 		console.log();
 		console.log(`Installed ${installedCount} skill target(s).`);
@@ -977,6 +979,7 @@ export function createProgram(): Command {
 		.option("-y, --yes", "Skip confirmation prompts")
 		.option("--check", "Validate only; exit 1 if installs drift")
 		.option("--all", "Install all newly discovered unmanaged skills")
+		.option("--copy", "Copy files instead of creating symlinks")
 		.option(
 			"-s, --skill <name>",
 			"Install a specific discovered skill by name",

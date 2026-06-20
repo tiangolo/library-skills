@@ -103,7 +103,14 @@ export function installSkill(
   if (options.copy) {
     cpSync(source, dest, { recursive: true });
   } else {
-    symlinkSync(getSymlinkTarget({ source, dest }), dest, "dir");
+    try {
+      symlinkSync(getSymlinkTarget({ source, dest }), dest, "dir");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new InstallError(
+        `Could not create symlink: ${message}. Use --copy if your system does not support symlinks.`,
+      );
+    }
   }
 
   return dest;
