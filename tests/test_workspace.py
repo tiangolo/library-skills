@@ -114,3 +114,17 @@ def test_find_node_workspace_supports_npm_object_form(tmp_path):
     assert found is not None
     assert found.root == project
     assert found.members == (api.resolve(),)
+
+
+def test_find_node_workspace_handles_invalid_and_non_object_package_json(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    package_json = project / "package.json"
+
+    package_json.write_text("{", encoding="utf-8")
+    assert workspace.find_node_workspace(project) is None
+    assert workspace._read_package_json(package_json) == {}
+
+    package_json.write_text("[]", encoding="utf-8")
+    assert workspace.find_node_workspace(project) is None
+    assert workspace._read_package_json(package_json) == {}

@@ -1,5 +1,6 @@
 from library_skills.deps import (
     get_node_top_level_deps,
+    get_node_top_level_deps_from_files,
     get_python_top_level_deps,
     get_python_top_level_deps_from_files,
     get_top_level_deps,
@@ -119,6 +120,8 @@ def test_get_node_top_level_deps_normalizes_dependency_fields(tmp_path):
 
 def test_get_node_top_level_deps_handles_missing_invalid_and_non_object(tmp_path):
     assert get_node_top_level_deps(tmp_path) is None
+    assert get_node_top_level_deps_from_files([]) is None
+    assert get_node_top_level_deps_from_files([tmp_path / "missing.json"]) is None
 
     (tmp_path / "package.json").write_text("{", encoding="utf-8")
     assert get_node_top_level_deps(tmp_path) is None

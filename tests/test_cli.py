@@ -569,6 +569,20 @@ def test_workspace_scan_prints_workspace_context(tmp_path, monkeypatch):
     assert f"Workspace member: {api.resolve()}" in result.output
 
 
+def test_node_workspace_scan_prints_workspace_context(tmp_path, monkeypatch):
+    project = write_node_workspace(tmp_path)
+    api = project / "packages" / "api"
+    write_node_package_skill(project, package_name="api-pkg", skill_name="api-skill")
+    monkeypatch.chdir(api)
+
+    with patch.object(cli, "console", Console(width=1000)):
+        result = runner.invoke(app, ["scan"])
+
+    assert result.exit_code == 0
+    assert f"Workspace root: {project}" in result.output
+    assert f"Workspace member: {api.resolve()}" in result.output
+
+
 def test_node_workspace_member_scan_uses_member_deps_and_root_node_modules(
     tmp_path,
     monkeypatch,
