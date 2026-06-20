@@ -4,6 +4,7 @@
 
 ### Fixes
 
+* 🐛 Fix finding skills in editable installs in the Node.js version. PR [#112](https://github.com/tiangolo/library-skills/pull/112) by [@tiangolo](https://github.com/tiangolo).
 * 🐛 Fix scanning editable project. PR [#110](https://github.com/tiangolo/library-skills/pull/110) by [@tiangolo](https://github.com/tiangolo).
 
 ### Upgrades
