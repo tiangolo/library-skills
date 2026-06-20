@@ -5,7 +5,11 @@ import { Command } from "commander";
 import { realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getTopLevelDeps, getWorkspaceTopLevelDeps } from "./deps.js";
+import {
+	getNodeWorkspaceTopLevelDeps,
+	getTopLevelDeps,
+	getWorkspaceTopLevelDeps,
+} from "./deps.js";
 import {
 	getTargetDirs,
 	installSkill,
@@ -28,8 +32,11 @@ import {
 	type Skill,
 } from "./scanner.js";
 import {
+	findNodeWorkspace,
 	findUvWorkspace,
+	nodeWorkspaceDependencyFiles,
 	workspaceDependencyFiles,
+	type NodeWorkspace,
 	type UvWorkspace,
 } from "./workspace.js";
 
@@ -40,6 +47,7 @@ interface ProjectContext {
 	sitePackagesDir: string | null;
 	nodeModulesDir: string | null;
 	workspace: UvWorkspace | null;
+	nodeWorkspace: NodeWorkspace | null;
 	dependencyFiles: string[];
 }
 
@@ -90,7 +98,8 @@ interface ScanOptions {
 
 function getProjectContext(cwd = process.cwd()): ProjectContext {
 	const workspace = findUvWorkspace(cwd);
-	const projectRoot = workspace?.root ?? findProjectRoot(cwd) ?? cwd;
+	const nodeWorkspace = workspace === null ? findNodeWorkspace(cwd) : null;
+	const projectRoot = workspace?.root ?? nodeWorkspace?.root ?? findProjectRoot(cwd) ?? cwd;
 	const targetEnvironment = findVenv(cwd);
 	const sitePackagesDir =
 		targetEnvironment === null ? null : getSitePackagesDir(targetEnvironment);
@@ -102,7 +111,12 @@ function getProjectContext(cwd = process.cwd()): ProjectContext {
 		sitePackagesDir,
 		nodeModulesDir,
 		workspace,
-		dependencyFiles: workspace ? workspaceDependencyFiles(workspace) : [],
+		nodeWorkspace,
+		dependencyFiles: workspace
+			? workspaceDependencyFiles(workspace)
+			: nodeWorkspace
+				? nodeWorkspaceDependencyFiles(nodeWorkspace)
+				: [],
 	};
 }
 
@@ -154,11 +168,15 @@ function topLevelSkills({
 	}
 	const topLevelDeps = getTopLevelDeps(context.projectRoot);
 	const workspaceTopLevelDeps =
-		context.workspace === null
-			? null
-			: getWorkspaceTopLevelDeps(context.dependencyFiles);
+		context.workspace !== null
+			? getWorkspaceTopLevelDeps(context.dependencyFiles)
+			: context.nodeWorkspace !== null
+				? getNodeWorkspaceTopLevelDeps(context.dependencyFiles)
+				: null;
 	const selectedTopLevelDeps =
-		context.workspace === null ? topLevelDeps : workspaceTopLevelDeps;
+		context.workspace === null && context.nodeWorkspace === null
+			? topLevelDeps
+			: workspaceTopLevelDeps;
 	if (selectedTopLevelDeps === null) {
 		return skills;
 	}
@@ -193,6 +211,11 @@ function printContext(context: ProjectContext): void {
 		console.log(`Workspace root: ${context.workspace.root}`);
 		if (context.workspace.currentMember !== null) {
 			console.log(`Workspace member: ${context.workspace.currentMember}`);
+		}
+	} else if (context.nodeWorkspace !== null) {
+		console.log(`Workspace root: ${context.nodeWorkspace.root}`);
+		if (context.nodeWorkspace.currentMember !== null) {
+			console.log(`Workspace member: ${context.nodeWorkspace.currentMember}`);
 		}
 	}
 	console.log(
@@ -243,9 +266,12 @@ function scanJsonPayload({
 	result: ScanResult;
 }): Record<string, unknown> {
 	return {
-		project_root: context.projectRoot,
-		workspace_root: context.workspace?.root ?? "",
-		workspace_member: context.workspace?.currentMember ?? "",
+			project_root: context.projectRoot,
+			workspace_root: context.workspace?.root ?? context.nodeWorkspace?.root ?? "",
+			workspace_member:
+				context.workspace?.currentMember ??
+				context.nodeWorkspace?.currentMember ??
+				"",
 		dependency_files: context.dependencyFiles,
 		target_environment: context.targetEnvironment ?? "",
 		node_modules: context.nodeModulesDir ?? "",

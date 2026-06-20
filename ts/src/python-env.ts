@@ -1,11 +1,15 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
-import { findUvWorkspace } from "./workspace.js";
+import { findNodeWorkspace, findUvWorkspace } from "./workspace.js";
 
 export function findProjectRoot(cwd: string): string | null {
   const workspace = findUvWorkspace(cwd);
   if (workspace !== null) {
     return workspace.root;
+  }
+  const nodeWorkspace = findNodeWorkspace(cwd);
+  if (nodeWorkspace !== null) {
+    return nodeWorkspace.root;
   }
   for (const directory of ancestors(cwd)) {
     if (

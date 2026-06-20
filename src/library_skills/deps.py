@@ -76,15 +76,43 @@ def get_node_top_level_deps(project_root: Path) -> set[str] | None:
     if not package_json.is_file():
         return None
 
+    return get_node_top_level_deps_from_files([package_json])
+
+
+def get_node_top_level_deps_from_files(
+    package_json_files: list[Path],
+) -> set[str] | None:
+    """Parse one or more package.json files to get top-level dependencies."""
+    if not package_json_files:
+        return None
+
+    deps: set[str] = set()
+    found = False
+    for package_json in package_json_files:
+        if not package_json.is_file():
+            continue
+        data = _read_package_json(package_json)
+        if data is None:
+            return None
+        found = True
+        _extract_node_top_level_deps(data, deps)
+
+    return deps if found else None
+
+
+def _read_package_json(package_json: Path) -> dict[str, object] | None:
     try:
         data = json.loads(package_json.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
 
     if not isinstance(data, dict):
-        return set()
+        return {}
 
-    deps: set[str] = set()
+    return data
+
+
+def _extract_node_top_level_deps(data: dict[str, object], deps: set[str]) -> None:
     for field in (
         "dependencies",
         "devDependencies",
@@ -96,8 +124,6 @@ def get_node_top_level_deps(project_root: Path) -> set[str] | None:
             for package_name in dependencies:
                 if isinstance(package_name, str):
                     deps.add(_normalize_package_name(package_name))
-
-    return deps
 
 
 def get_top_level_deps(project_root: Path) -> set[str] | None:
@@ -118,6 +144,13 @@ def get_top_level_deps(project_root: Path) -> set[str] | None:
 def get_workspace_top_level_deps(pyprojects: list[Path]) -> set[str] | None:
     """Parse Python dependency metadata for selected uv workspace files."""
     return get_python_top_level_deps_from_files(pyprojects)
+
+
+def get_node_workspace_top_level_deps(
+    package_json_files: list[Path],
+) -> set[str] | None:
+    """Parse Node dependency metadata for selected npm/Bun workspace files."""
+    return get_node_top_level_deps_from_files(package_json_files)
 
 
 def _extract_deps_from_specs(dep_specs: Sequence[object], deps: set[str]) -> None:

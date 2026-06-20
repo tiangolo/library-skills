@@ -1,4 +1,5 @@
 import fnmatch
+import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +13,13 @@ else:
 
 @dataclass(frozen=True)
 class UvWorkspace:
+    root: Path
+    members: tuple[Path, ...]
+    current_member: Path | None
+
+
+@dataclass(frozen=True)
+class NodeWorkspace:
     root: Path
     members: tuple[Path, ...]
     current_member: Path | None
@@ -35,6 +43,25 @@ def find_uv_workspace(cwd: Path) -> UvWorkspace | None:
     return None
 
 
+def find_node_workspace(cwd: Path) -> NodeWorkspace | None:
+    """Find npm/Bun package.json workspace metadata for cwd, if any."""
+    for directory in [cwd, *cwd.parents]:
+        package_json = directory / "package.json"
+        if not package_json.is_file():
+            continue
+        data = _read_package_json(package_json)
+        member_globs = _get_node_workspace_globs(data)
+        if member_globs is None:
+            continue
+        members = _find_node_workspace_members(directory, member_globs)
+        return NodeWorkspace(
+            root=directory,
+            members=tuple(members),
+            current_member=_find_current_member(cwd, members),
+        )
+    return None
+
+
 def workspace_dependency_files(workspace: UvWorkspace) -> list[Path]:
     """Return pyproject files used for default dependency filtering."""
     if workspace.current_member is not None:
@@ -47,10 +74,30 @@ def workspace_dependency_files(workspace: UvWorkspace) -> list[Path]:
     ]
 
 
+def node_workspace_dependency_files(workspace: NodeWorkspace) -> list[Path]:
+    """Return package.json files used for default dependency filtering."""
+    if workspace.current_member is not None:
+        return [workspace.current_member / "package.json"]
+    return [
+        path
+        for path in [workspace.root / "package.json"]
+        + [member / "package.json" for member in workspace.members]
+        if path.is_file()
+    ]
+
+
 def _read_pyproject(path: Path) -> dict[str, object]:
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _read_package_json(path: Path) -> dict[str, object]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -92,6 +139,35 @@ def _find_workspace_members(root: Path, data: dict[str, object]) -> list[Path]:
             if _is_excluded(relative, excludes):
                 continue
             if (member / "pyproject.toml").is_file():
+                members.add(member.resolve())
+    return sorted(members)
+
+
+def _get_node_workspace_globs(data: dict[str, object]) -> list[str] | None:
+    workspaces = data.get("workspaces")
+    if isinstance(workspaces, list):
+        return [item for item in workspaces if isinstance(item, str)]
+    if isinstance(workspaces, dict):
+        workspace_data = cast("dict[str, object]", workspaces)
+        packages = workspace_data.get("packages")
+        if isinstance(packages, list):
+            return [item for item in packages if isinstance(item, str)]
+    return None
+
+
+def _find_node_workspace_members(root: Path, member_globs: list[str]) -> list[Path]:
+    includes = [pattern for pattern in member_globs if not pattern.startswith("!")]
+    excludes = [pattern[1:] for pattern in member_globs if pattern.startswith("!")]
+
+    members: set[Path] = set()
+    for member_glob in includes:
+        for member in root.glob(member_glob):
+            if not member.is_dir():
+                continue
+            relative = member.relative_to(root).as_posix()
+            if _is_excluded(relative, excludes):
+                continue
+            if (member / "package.json").is_file():
                 members.add(member.resolve())
     return sorted(members)
 

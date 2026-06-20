@@ -36,7 +36,7 @@ This command will:
 * Ask you which skills you want to **install**.
 * For each skill you select, it will create a **symbolic link** in the `.agents` directory. If you are in a system that doesn't support symbolic links, you can make it copy the file with `--copy`.
 
-In uv workspaces, Library Skills uses the workspace environment and filters by the workspace member you run it from. When you run it from the workspace root, it uses the root and all workspace members.
+In uv workspaces, Library Skills uses the workspace environment and filters by the workspace member you run it from. In npm and Bun workspaces, it keeps normal `node_modules` discovery and applies the same workspace-aware dependency filtering. When you run it from the workspace root, it uses the root and all workspace members.
 
 /// tip
 
