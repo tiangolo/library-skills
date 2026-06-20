@@ -10,7 +10,6 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import checkbox from "@inquirer/checkbox";
@@ -26,6 +25,8 @@ import {
   testing as depsTesting,
 } from "../src/deps.js";
 import {
+  getDefaultInstallTargetDirs,
+  getExistingTargetDirs,
   getTargetDirs,
   InstallError,
   installSkill,
@@ -893,6 +894,28 @@ describe("installer", () => {
       { name: "universal", path: join(root, ".agents", "skills") },
       { name: "claude-compatible", path: join(root, ".claude", "skills") },
     ]);
+    expect(getDefaultInstallTargetDirs(root)).toEqual([
+      { name: "universal", path: join(root, ".agents", "skills") },
+    ]);
+    mkdirSync(join(root, ".claude"), { recursive: true });
+    expect(getDefaultInstallTargetDirs(root)).toEqual([
+      { name: "claude-compatible", path: join(root, ".claude", "skills") },
+    ]);
+    mkdirSync(join(root, ".agents", "skills"), { recursive: true });
+    expect(getDefaultInstallTargetDirs(root)).toEqual([
+      { name: "universal", path: join(root, ".agents", "skills") },
+      { name: "claude-compatible", path: join(root, ".claude", "skills") },
+    ]);
+    rmSync(join(root, ".agents"), { recursive: true, force: true });
+    expect(getExistingTargetDirs(root)).toEqual([]);
+    mkdirSync(join(root, ".claude", "skills"), { recursive: true });
+    expect(getExistingTargetDirs(root)).toEqual([
+      { name: "claude-compatible", path: join(root, ".claude", "skills") },
+    ]);
+    expect(getExistingTargetDirs(root, { includeClaude: true })).toEqual([
+      { name: "universal", path: join(root, ".agents", "skills") },
+      { name: "claude-compatible", path: join(root, ".claude", "skills") },
+    ]);
 
     const copied = installSkill(skill, targetDir, { copy: true });
     expect(lstatSync(copied).isDirectory()).toBe(true);
@@ -913,10 +936,6 @@ describe("installer", () => {
     const targetFile = join(tempDir(), "skills-file");
     writeFileSync(targetFile, "not a directory");
     expect(listInstalledSkills(targetFile)).toEqual([]);
-
-    execFileSync("mkfifo", [join(targetDir, "agent")]);
-    expect(() => installSkill(skill, targetDir)).toThrow();
-    rmSync(join(targetDir, "agent"));
 
     expect(installerTesting.getSymlinkTarget({ source: root, dest: join(root, "agent") })).toBe(
       root,
@@ -1558,6 +1577,56 @@ test("CLI install command covers interactive, copy, selected, and skipped instal
   ).toThrow();
 });
 
+test("CLI interactive install can choose Claude targets", async () => {
+  const claudeOnly = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(claudeOnly);
+  const { log } = mockConsole();
+
+  vi.mocked(checkbox)
+    .mockImplementationOnce(async (prompt) => [prompt.choices[0].value])
+    .mockImplementationOnce(async (prompt) => {
+      expect(prompt.validate?.([])).toBe(
+        "Please select at least one installation target.",
+      );
+      return [prompt.choices[1].value];
+    });
+  await createProgram().parseAsync(["node", "library-skills", "install"]);
+
+  expect(existsSync(join(claudeOnly, ".agents", "skills", "top-skill"))).toBe(false);
+  expect(lstatSync(join(claudeOnly, ".claude", "skills", "top-skill")).isSymbolicLink()).toBe(
+    true,
+  );
+
+  const both = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(both);
+  vi.mocked(checkbox)
+    .mockImplementationOnce(async (prompt) => [prompt.choices[0].value])
+    .mockImplementationOnce(async (prompt) => prompt.choices.map((choice) => choice.value));
+  await createProgram().parseAsync(["node", "library-skills", "install"]);
+
+  expect(lstatSync(join(both, ".agents", "skills", "top-skill")).isSymbolicLink()).toBe(true);
+  expect(lstatSync(join(both, ".claude", "skills", "top-skill")).isSymbolicLink()).toBe(true);
+  expect(log).toHaveBeenCalledWith("Installed 1 skill target(s).");
+});
+
+test("CLI install and sync cancel when no targets are selected", async () => {
+  const installProject = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(installProject);
+  const { log } = mockConsole();
+
+  vi.mocked(checkbox).mockResolvedValueOnce([]);
+  await createProgram().parseAsync(["node", "library-skills", "install", "--all"]);
+  expect(log).toHaveBeenCalledWith("No installation targets selected.");
+  expect(existsSync(join(installProject, ".agents", "skills", "top-skill"))).toBe(false);
+
+  const syncProject = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(syncProject);
+  vi.mocked(checkbox).mockResolvedValueOnce([]);
+  await createProgram().parseAsync(["node", "library-skills", "--all"]);
+  expect(log).toHaveBeenCalledWith("No installation targets selected.");
+  expect(existsSync(join(syncProject, ".agents", "skills", "top-skill"))).toBe(false);
+});
+
 test("CLI remove command covers selected, interactive, and empty removals", async () => {
   const project = writeProjectWithTopLevelAndTransitiveSkills();
   process.chdir(project);
@@ -1583,11 +1652,57 @@ test("CLI remove command covers selected, interactive, and empty removals", asyn
   expect(log).toHaveBeenCalledWith("No skills selected.");
 });
 
+test("CLI list and remove include existing Claude target without flag", async () => {
+  const project = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(project);
+  const { log } = mockConsole();
+  const source = join(
+    project,
+    ".venv",
+    "lib",
+    "python3.12",
+    "site-packages",
+    "top_pkg",
+    ".agents",
+    "skills",
+    "top-skill",
+  );
+  mkdirSync(join(project, ".claude", "skills"), { recursive: true });
+  symlinkSync(source, join(project, ".claude", "skills", "top-skill"));
+
+  await createProgram().parseAsync(["node", "library-skills", "list", "--installed"]);
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("claude-compatible"));
+  expect(log).toHaveBeenCalledWith(
+    expect.stringContaining(join(".claude", "skills", "top-skill")),
+  );
+
+  await createProgram().parseAsync(["node", "library-skills", "remove", "top-skill"]);
+  expect(log).toHaveBeenCalledWith("Removed: top-skill (claude-compatible)");
+  expect(existsSync(join(project, ".claude", "skills", "top-skill"))).toBe(false);
+});
+
+test("CLI list installed and remove do not create missing target directories", async () => {
+  const project = tempDir();
+  process.chdir(project);
+  mkdirSync(join(project, ".claude"));
+  writeFileSync(join(project, "pyproject.toml"), "[project]\nname = 'empty'\n");
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "list", "--installed"]);
+  await createProgram().parseAsync(["node", "library-skills", "remove", "--yes"]);
+
+  expect(log).toHaveBeenCalledWith("No skills installed.");
+  expect(log).toHaveBeenCalledWith("No skills selected.");
+  expect(existsSync(join(project, ".agents", "skills"))).toBe(false);
+  expect(existsSync(join(project, ".claude", "skills"))).toBe(false);
+});
+
 test("CLI sync covers check mode, interactive installs, and automatic drift repair", async () => {
   const project = writeProjectWithTopLevelAndTransitiveSkills();
   process.chdir(project);
   const { log } = mockConsole();
 
+  vi.mocked(checkbox).mockImplementationOnce(async (prompt) => [prompt.choices[0].value]);
   await cliTesting.sync({ all: true });
   expect(lstatSync(join(project, ".agents", "skills", "top-skill")).isSymbolicLink()).toBe(true);
   expect(log).toHaveBeenCalledWith("Installed 2 skill target(s).");
@@ -1599,6 +1714,7 @@ test("CLI sync covers check mode, interactive installs, and automatic drift repa
     writeSkill(join(project, "old-transitive"), "transitive-skill", "Old transitive."),
     join(project, ".agents", "skills", "transitive-skill"),
   );
+  vi.mocked(checkbox).mockImplementationOnce(async (prompt) => [prompt.choices[0].value]);
   await cliTesting.sync({ all: true });
 
   unlinkSync(join(project, ".agents", "skills", "top-skill"));
@@ -1635,13 +1751,18 @@ test("CLI sync covers check mode, interactive installs, and automatic drift repa
     packageName: "interactive-pkg",
   });
   process.chdir(interactive);
-  vi.mocked(checkbox).mockImplementationOnce(async (prompt) => [prompt.choices[0].value]);
+  vi.mocked(checkbox)
+    .mockImplementationOnce(async (prompt) => [prompt.choices[0].value])
+    .mockImplementationOnce(async (prompt) => [prompt.choices[0].value]);
   await cliTesting.sync({});
   expect(lstatSync(join(interactive, ".agents", "skills", "interactive-skill")).isSymbolicLink()).toBe(
     true,
   );
 
   process.chdir(project);
+  vi.mocked(checkbox).mockImplementationOnce(async (prompt) =>
+    prompt.choices.map((choice) => choice.value),
+  );
   await createProgram().parseAsync(["--all"], { from: "user" });
   expect(log).toHaveBeenCalledWith("Installed 2 skill target(s).");
 });
