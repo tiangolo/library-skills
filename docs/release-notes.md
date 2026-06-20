@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Fixes
+
+* 🐛 Fix scanning editable project. PR [#110](https://github.com/tiangolo/library-skills/pull/110) by [@tiangolo](https://github.com/tiangolo).
+
 ### Upgrades
 
 * ⬆ Bump commander from 14.0.3 to 15.0.0. PR [#99](https://github.com/tiangolo/library-skills/pull/99) by [@dependabot[bot]](https://github.com/apps/dependabot).
