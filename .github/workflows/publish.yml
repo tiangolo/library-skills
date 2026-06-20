@@ -3,7 +3,7 @@ name: Publish
 on:
   release:
     types:
-      - created
+      - published
 
 jobs:
   check-release:
@@ -38,6 +38,8 @@ jobs:
           python-version-file: ".python-version"
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: false
       - name: Build Python distribution
         run: uv build
       - name: Publish Python package
@@ -59,7 +61,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-          cache: npm
+          package-manager-cache: false
       - name: Install npm dependencies
         run: npm ci
       - name: Build TypeScript distribution
