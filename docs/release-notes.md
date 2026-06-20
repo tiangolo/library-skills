@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Fixes
+
+* 🐛 Fix for Node.js, ignore hidden / dot files. PR [#122](https://github.com/tiangolo/library-skills/pull/122) by [@tiangolo](https://github.com/tiangolo).
+
 ## 0.0.9 (2026-06-20)
 
 ### Fixes
