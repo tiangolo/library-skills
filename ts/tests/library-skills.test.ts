@@ -241,6 +241,40 @@ test("discovers editable skills from direct_url.json file URLs", () => {
   expect(result.skills.map((skill) => skill.name)).toEqual(["editable"]);
 });
 
+test("does not attribute nested site-packages skills to editable packages", () => {
+  const sourceRoot = tempDir();
+  const sitePackages = join(sourceRoot, ".venv", "lib", "python3.12", "site-packages");
+  const dependencySkill = writeSkill(
+    join(sitePackages, "fastapi", ".agents", "skills", "fastapi"),
+    "fastapi",
+    "FastAPI skill.",
+  );
+  const editableDist = writeDistribution({
+    sitePackages,
+    distInfoName: "aaa_editable_pkg-1.0.0.dist-info",
+    packageName: "aaa-editable-pkg",
+    version: "1.0.0",
+    records: [],
+  });
+  writeFileSync(
+    join(editableDist, "direct_url.json"),
+    JSON.stringify({ dir_info: { editable: true }, url: pathToFileURL(sourceRoot).href }),
+  );
+  writeDistribution({
+    sitePackages,
+    distInfoName: "fastapi-1.0.0.dist-info",
+    packageName: "fastapi",
+    version: "1.0.0",
+    records: [`${dependencySkill}/SKILL.md`.replace(`${sitePackages}/`, "") + ",,"],
+  });
+
+  const result = scanPythonDistributions(sitePackages);
+
+  expect(result.warnings).toEqual([]);
+  expect(result.skills.map((skill) => skill.name)).toEqual(["fastapi"]);
+  expect(result.skills[0]?.packageName).toBe("fastapi");
+});
+
 test("scanner helpers parse CSV and normalize package names", () => {
   expect(scannerTesting.isSkillFileRecord("pkg/.agents/skills/demo/SKILL.md")).toBe(true);
   expect(scannerTesting.isSkillFileRecord("pkg/.agents/other/demo/SKILL.md")).toBe(false);
