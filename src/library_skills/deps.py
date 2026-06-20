@@ -1,7 +1,9 @@
 import json
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 from .scanner import _normalize_package_name
 
@@ -27,18 +29,26 @@ def get_python_top_level_deps(project_root: Path) -> set[str] | None:
 
     deps: set[str] = set()
     project = data.get("project", {})
-    if not isinstance(project, dict):
-        return deps
+    if isinstance(project, dict):
+        dependencies = project.get("dependencies", [])
+        if isinstance(dependencies, list):
+            _extract_deps_from_specs(dependencies, deps)
 
-    dependencies = project.get("dependencies", [])
-    if isinstance(dependencies, list):
-        _extract_deps_from_specs(dependencies, deps)
+        optional_dependencies = project.get("optional-dependencies", {})
+        if isinstance(optional_dependencies, dict):
+            for group_dependencies in optional_dependencies.values():
+                if isinstance(group_dependencies, list):
+                    _extract_deps_from_specs(group_dependencies, deps)
 
-    optional_dependencies = project.get("optional-dependencies", {})
-    if isinstance(optional_dependencies, dict):
-        for group_dependencies in optional_dependencies.values():
-            if isinstance(group_dependencies, list):
-                _extract_deps_from_specs(group_dependencies, deps)
+    dependency_groups = data.get("dependency-groups", {})
+    if isinstance(dependency_groups, dict):
+        for group_name in dependency_groups:
+            _extract_deps_from_dependency_group(
+                group_name,
+                dependency_groups,
+                deps,
+                visited=set(),
+            )
 
     return deps
 
@@ -88,7 +98,7 @@ def get_top_level_deps(project_root: Path) -> set[str] | None:
     return set().union(*dependency_sets)
 
 
-def _extract_deps_from_specs(dep_specs: list[object], deps: set[str]) -> None:
+def _extract_deps_from_specs(dep_specs: Sequence[object], deps: set[str]) -> None:
     """Extract package names from dependency spec strings."""
     for dep_spec in dep_specs:
         if not isinstance(dep_spec, str):
@@ -96,3 +106,34 @@ def _extract_deps_from_specs(dep_specs: list[object], deps: set[str]) -> None:
         pkg_name = re.split(r"[>=<!\[;,\s]", dep_spec)[0].strip()
         if pkg_name and not pkg_name.startswith("#"):
             deps.add(_normalize_package_name(pkg_name))
+
+
+def _extract_deps_from_dependency_group(
+    group_name: str,
+    dependency_groups: dict[str, object],
+    deps: set[str],
+    visited: set[str],
+) -> None:
+    """Extract package names from a PEP 735 dependency group."""
+    if group_name in visited:
+        return
+    visited.add(group_name)
+
+    group_dependencies = dependency_groups.get(group_name)
+    if not isinstance(group_dependencies, list):
+        return
+
+    _extract_deps_from_specs(group_dependencies, deps)
+    for group_dependency in group_dependencies:
+        if not isinstance(group_dependency, dict):
+            continue
+        group_dependency_data = cast("dict[str, object]", group_dependency)
+        include_group = group_dependency_data.get("include-group")
+        if not isinstance(include_group, str):
+            continue
+        _extract_deps_from_dependency_group(
+            include_group,
+            dependency_groups,
+            deps,
+            visited,
+        )

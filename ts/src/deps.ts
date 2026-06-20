@@ -19,21 +19,26 @@ export function getPythonTopLevelDeps(projectRoot: string): Set<string> | null {
   const deps = new Set<string>();
 
   const project = data["project"];
-  if (!isRecord(project)) {
-    return deps;
-  }
+  if (isRecord(project)) {
+    const dependencies = project["dependencies"];
+    if (Array.isArray(dependencies)) {
+      extractDepsFromSpecs(dependencies, deps);
+    }
 
-  const dependencies = project["dependencies"];
-  if (Array.isArray(dependencies)) {
-    extractDepsFromSpecs(dependencies, deps);
-  }
-
-  const optionalDependencies = project["optional-dependencies"];
-  if (isRecord(optionalDependencies)) {
-    for (const groupDependencies of Object.values(optionalDependencies)) {
-      if (Array.isArray(groupDependencies)) {
-        extractDepsFromSpecs(groupDependencies, deps);
+    const optionalDependencies = project["optional-dependencies"];
+    if (isRecord(optionalDependencies)) {
+      for (const groupDependencies of Object.values(optionalDependencies)) {
+        if (Array.isArray(groupDependencies)) {
+          extractDepsFromSpecs(groupDependencies, deps);
+        }
       }
+    }
+  }
+
+  const dependencyGroups = data["dependency-groups"];
+  if (isRecord(dependencyGroups)) {
+    for (const groupName of Object.keys(dependencyGroups)) {
+      extractDepsFromDependencyGroup(groupName, dependencyGroups, deps, new Set());
     }
   }
 
@@ -99,11 +104,46 @@ function extractDepsFromSpecs(depSpecs: unknown[], deps: Set<string>): void {
   }
 }
 
+function extractDepsFromDependencyGroup(
+  groupName: unknown,
+  dependencyGroups: Record<string, unknown>,
+  deps: Set<string>,
+  visited: Set<unknown>,
+): void {
+  if (visited.has(groupName)) {
+    return;
+  }
+  visited.add(groupName);
+
+  if (typeof groupName !== "string") {
+    return;
+  }
+
+  const groupDependencies = dependencyGroups[groupName];
+  if (!Array.isArray(groupDependencies)) {
+    return;
+  }
+
+  extractDepsFromSpecs(groupDependencies, deps);
+  for (const groupDependency of groupDependencies) {
+    if (!isRecord(groupDependency)) {
+      continue;
+    }
+    extractDepsFromDependencyGroup(
+      groupDependency["include-group"],
+      dependencyGroups,
+      deps,
+      visited,
+    );
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export const testing = {
 	extractDepsFromSpecs,
+	extractDepsFromDependencyGroup,
 	isRecord,
 };

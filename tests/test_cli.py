@@ -192,7 +192,7 @@ def test_scan_includes_python_and_node_package_skills(tmp_path, monkeypatch):
         skill_name="transitive-node-skill",
     )
     project.joinpath("package.json").write_text(
-        json.dumps({"dependencies": {"@scope/node-pkg": "^2.0.0"}}),
+        json.dumps({"devDependencies": {"@scope/node-pkg": "^2.0.0"}}),
         encoding="utf-8",
     )
     monkeypatch.chdir(project)

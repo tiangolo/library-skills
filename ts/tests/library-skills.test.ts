@@ -481,6 +481,25 @@ test("parses project dependency names from pyproject.toml", () => {
   );
 });
 
+test("parses dependency group names from pyproject.toml", () => {
+  const project = tempDir();
+  writeFileSync(
+    join(project, "pyproject.toml"),
+    [
+      "[dependency-groups]",
+      'dev = [{ include-group = "tests" }, { include-group = 1 }, "Prek>=0.2"]',
+      'tests = ["PyTest_Cov>=4"]',
+      'docs = "mkdocs"',
+      'cycle = [{ include-group = "cycle" }, "Ruff>=0.15"]',
+      "",
+    ].join("\n"),
+  );
+
+  expect(getPythonTopLevelDeps(project)).toEqual(
+    new Set(["prek", "pytest-cov", "ruff"]),
+  );
+});
+
 test("parses project dependency names from package.json", () => {
   const project = tempDir();
   writeFileSync(
@@ -753,7 +772,7 @@ test("CLI scan defaults to top-level project dependencies", async () => {
   });
   writeFileSync(
     join(project, "package.json"),
-    JSON.stringify({ dependencies: { "@scope/node-pkg": "^1.0.0" } }),
+    JSON.stringify({ devDependencies: { "@scope/node-pkg": "^1.0.0" } }),
   );
   process.chdir(project);
   const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
