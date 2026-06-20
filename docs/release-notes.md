@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.9 (2026-06-20)
+
 ### Fixes
 
 * 🐛 Fix support for Python versions with tilde (`~`). PR [#120](https://github.com/tiangolo/library-skills/pull/120) by [@tiangolo](https://github.com/tiangolo).
