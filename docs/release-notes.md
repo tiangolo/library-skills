@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Features
+
+* ✨ Add support for dependency groups (e.g. `dev`). PR [#115](https://github.com/tiangolo/library-skills/pull/115) by [@tiangolo](https://github.com/tiangolo).
+
 ## 0.0.6 (2026-06-20)
 
 ### Fixes
