@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Features
+
+* ✨ Add support to remove stale and repair broken as part of the default flow. PR [#129](https://github.com/tiangolo/library-skills/pull/129) by [@tiangolo](https://github.com/tiangolo).
+
 ## 0.0.12 (2026-06-20)
 
 ### Features
