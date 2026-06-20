@@ -871,6 +871,16 @@ describe("installer", () => {
     ]);
     expect(uninstallSkill("agent", targetDir)).toBe(true);
     expect(existsSync(dest)).toBe(false);
+
+    const dangling = join(targetDir, "dangling");
+    mkdirSync(targetDir, { recursive: true });
+    symlinkSync(join(root, "missing"), dangling, "dir");
+    expect(listInstalledSkills(targetDir)).toMatchObject([
+      { name: "dangling", type: "symlink", hasSkillMd: false },
+    ]);
+    expect(listInstalledSkills(targetDir)[0]?.target).toBe(join(root, "missing"));
+    expect(uninstallSkill("dangling", targetDir)).toBe(true);
+    expect(lstatExists(dangling)).toBe(false);
   });
 
   test("refuses to overwrite hand-authored directories", () => {
@@ -1465,6 +1475,15 @@ test("CLI helpers filter skills and classify installed statuses", () => {
   expect(cliTesting.displayPath(root, root)).toBe(".");
   expect(cliTesting.displayPath(join(tempDir(), "outside"), root)).toMatch(/outside$/);
   expect(cliTesting.displayPath(null, root)).toBe("");
+  expect(
+    cliTesting
+      .repairableStatuses(statuses)
+      .map((status) => status.name)
+      .sort(),
+  ).toEqual(["broken", "outdated"]);
+  expect(cliTesting.removableStatuses(statuses).map((status) => status.name)).toEqual([
+    "orphan",
+  ]);
   const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
   cliTesting.printTable(["Name", "Value"], [{ Name: "demo", Value: "ok" }]);
   expect(log.mock.calls.map((call) => call[0])).toEqual([
@@ -1472,6 +1491,35 @@ test("CLI helpers filter skills and classify installed statuses", () => {
     "----  -----",
     "demo  ok   ",
   ]);
+});
+
+test("CLI reconcile helpers cover interactive selection and missing removals", async () => {
+  const root = tempDir();
+  const target = { name: "universal", path: join(root, ".agents", "skills") };
+  mkdirSync(target.path, { recursive: true });
+  const skillDir = writeSkill(join(root, "src", "repair"), "repair", "Repair.");
+  const status = {
+    target,
+    name: "repair",
+    type: "symlink" as const,
+    path: join(target.path, "repair"),
+    targetPath: join(root, "missing"),
+    status: "broken" as const,
+    skill: makeSkill({ name: "repair", skillDir }),
+  };
+  vi.mocked(checkbox).mockImplementationOnce(async (prompt) => {
+    expect(prompt.message).toContain("repair");
+    return [prompt.choices[0].value];
+  });
+
+  await expect(cliTesting.selectStatusesInteractive([status], "repair")).resolves.toEqual([
+    status,
+  ]);
+  await expect(cliTesting.selectStatusesInteractive([], "repair")).resolves.toEqual([]);
+
+  const { log } = mockConsole();
+  expect(cliTesting.removeSelected({ statuses: [status], projectRoot: root })).toBe(0);
+  expect(log).toHaveBeenCalledWith("Not found: repair (universal)");
 });
 
 test("CLI list and scan commands cover JSON, installed, warnings, and empty output", async () => {
@@ -1697,7 +1745,7 @@ test("CLI list installed and remove do not create missing target directories", a
   expect(existsSync(join(project, ".claude", "skills"))).toBe(false);
 });
 
-test("CLI sync covers check mode, interactive installs, and automatic drift repair", async () => {
+test("CLI sync covers check mode, interactive installs, and automatic drift reconcile", async () => {
   const project = writeProjectWithTopLevelAndTransitiveSkills();
   process.chdir(project);
   const { log } = mockConsole();
@@ -1714,28 +1762,40 @@ test("CLI sync covers check mode, interactive installs, and automatic drift repa
     writeSkill(join(project, "old-transitive"), "transitive-skill", "Old transitive."),
     join(project, ".agents", "skills", "transitive-skill"),
   );
-  vi.mocked(checkbox).mockImplementationOnce(async (prompt) => [prompt.choices[0].value]);
-  await cliTesting.sync({ all: true });
-
-  unlinkSync(join(project, ".agents", "skills", "top-skill"));
-  symlinkSync(join(project, "missing"), join(project, ".agents", "skills", "top-skill"));
-  unlinkSync(join(project, ".agents", "skills", "transitive-skill"));
-  symlinkSync(
-    writeSkill(join(project, "old-transitive-again"), "transitive-skill", "Old transitive."),
-    join(project, ".agents", "skills", "transitive-skill"),
-  );
   await cliTesting.sync({ yes: true, all: true, check: true });
   expect(process.exitCode).toBe(1);
   process.exitCode = undefined;
 
   await cliTesting.sync({ yes: true, all: true });
   expect(existsSync(join(project, ".agents", "skills", "top-skill", "SKILL.md"))).toBe(true);
+  expect(existsSync(join(project, ".agents", "skills", "transitive-skill", "SKILL.md"))).toBe(true);
   expect(log).toHaveBeenCalledWith(expect.stringContaining("top-skill"));
+
+  symlinkSync(
+    writeSkill(join(project, "old-orphan"), "old-orphan", "Old orphan."),
+    join(project, ".agents", "skills", "orphan-skill"),
+  );
+  symlinkSync(join(project, "missing-orphan"), join(project, ".agents", "skills", "broken-orphan"));
+  await cliTesting.sync({ yes: true });
+  expect(lstatExists(join(project, ".agents", "skills", "orphan-skill"))).toBe(false);
+  expect(lstatExists(join(project, ".agents", "skills", "broken-orphan"))).toBe(false);
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("Removed orphaned symlink"));
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("Removed broken symlink"));
+
+  const claudeProject = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(claudeProject);
+  mkdirSync(join(claudeProject, ".claude", "skills"), { recursive: true });
+  const claudeSkill = join(claudeProject, ".claude", "skills", "top-skill");
+  symlinkSync(join(claudeProject, "missing"), claudeSkill);
+  await cliTesting.sync({ yes: true });
+  expect(lstatSync(claudeSkill).isSymbolicLink()).toBe(true);
+  expect(existsSync(join(claudeSkill, "SKILL.md"))).toBe(true);
 
   const empty = tempDir();
   process.chdir(empty);
   await cliTesting.sync({ yes: true });
   expect(log).toHaveBeenCalledWith("No installed or discovered skills found.");
+  expect(log).toHaveBeenCalledWith("No changes needed.");
 
   await cliTesting.sync({ yes: true, check: true });
   expect(process.exitCode).toBeUndefined();
@@ -2046,4 +2106,13 @@ function makeSkill({ name, skillDir }: { name: string; skillDir: string }): Skil
     packageVersion: "1.0.0",
     skillDir,
   };
+}
+
+function lstatExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
 }

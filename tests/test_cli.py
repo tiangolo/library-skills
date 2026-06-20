@@ -807,6 +807,86 @@ def test_yes_repairs_broken_managed_symlink_without_installing_new_skills(
     assert not (installed_dir / "new-skill").exists()
 
 
+def test_yes_removes_orphaned_and_unrecoverable_broken_symlinks(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_project(tmp_path, dependencies=[])
+    installed_dir = project / ".agents" / "skills"
+    installed_dir.mkdir(parents=True)
+    orphan_target = project / "old-target"
+    orphan_target.mkdir()
+    orphan_link = installed_dir / "orphan-skill"
+    orphan_link.symlink_to(orphan_target, target_is_directory=True)
+    broken_link = installed_dir / "broken-skill"
+    broken_link.symlink_to(project / "missing-target", target_is_directory=True)
+    hand_authored = installed_dir / "hand-authored"
+    hand_authored.mkdir()
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["--yes"])
+
+    assert result.exit_code == 0
+    assert "Removed orphaned symlink" in result.output
+    assert "Removed broken symlink" in result.output
+    assert not orphan_link.is_symlink()
+    assert not broken_link.is_symlink()
+    assert hand_authored.is_dir()
+
+
+def test_yes_repairs_existing_claude_target_without_claude_flag(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    repaired_skill = write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    claude_dir = project / ".claude" / "skills"
+    claude_dir.mkdir(parents=True)
+    installed = claude_dir / "demo-skill"
+    installed.symlink_to(project / "missing-target", target_is_directory=True)
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["--yes"])
+
+    assert result.exit_code == 0
+    assert "claude-compatible" in result.output
+    assert installed.is_symlink()
+    assert installed.resolve() == repaired_skill.resolve()
+
+
+def test_check_reports_fixable_drift_without_modifying_files(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=[])
+    installed_dir = project / ".agents" / "skills"
+    installed_dir.mkdir(parents=True)
+    broken_link = installed_dir / "broken-skill"
+    broken_link.symlink_to(project / "missing-target", target_is_directory=True)
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["--check"])
+
+    assert result.exit_code == 1
+    assert broken_link.is_symlink()
+
+
+def test_default_sync_with_no_changes_reports_no_changes_needed(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_project(tmp_path, dependencies=[])
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app)
+
+    assert result.exit_code == 0
+    assert "No changes needed." in result.output
+
+
 def test_list_json_reports_discovered_and_installed_skills(tmp_path, monkeypatch):
     project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
     site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
@@ -1322,6 +1402,9 @@ def test_installed_statuses_classifies_name_mismatch_outdated_and_orphaned(tmp_p
     old_target = tmp_path / "old-target"
     old_target.mkdir()
     (target.path / skill.name).symlink_to(old_target, target_is_directory=True)
+    (target.path / "broken-skill").symlink_to(
+        tmp_path / "missing-target", target_is_directory=True
+    )
     orphan_target = tmp_path / "orphan-target"
     orphan_target.mkdir()
     (target.path / "orphan-skill").symlink_to(orphan_target, target_is_directory=True)
@@ -1335,6 +1418,7 @@ def test_installed_statuses_classifies_name_mismatch_outdated_and_orphaned(tmp_p
 
     assert statuses["wrong-name"] == "name mismatch"
     assert statuses[skill.name] == "outdated"
+    assert statuses["broken-skill"] == "broken"
     assert statuses["orphan-skill"] == "orphaned"
     assert statuses["hand-authored"] == "hand-authored"
 
@@ -1386,6 +1470,59 @@ def test_select_helpers_use_rich_toolkit(monkeypatch, tmp_path):
         )
         == []
     )
+
+
+def test_reconcile_helpers_cover_selection_skip_and_not_found(
+    monkeypatch, tmp_path, capsys
+):
+    skill = make_cli_skill(tmp_path)
+    target = cli.InstallTarget("universal", tmp_path / ".agents" / "skills")
+    target.path.mkdir(parents=True)
+    status = cli.InstalledStatus(
+        target=target,
+        name=skill.name,
+        type="symlink",
+        path=target.path / skill.name,
+        target_path=skill.skill_dir,
+        status="broken",
+        skill=skill,
+    )
+
+    class FakeToolkitMenu:
+        style = None
+        console = None
+
+    class FakeMenu:
+        def __init__(self, label, *, options, **kwargs):
+            assert "repair" in label
+            assert kwargs["multiple"] is True
+            self.options = options
+            self.checked = set()
+
+        def ask(self):
+            assert self.checked == {0}
+            return [self.options[index]["value"] for index in sorted(self.checked)]
+
+    monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkitMenu())
+    monkeypatch.setattr(cli, "Menu", FakeMenu)
+
+    assert cli._select_statuses_interactive([status], action="repair") == [status]
+    assert cli._select_statuses_interactive([], action="repair") == []
+
+    skipped = cli.InstalledStatus(
+        target=target,
+        name="missing-skill",
+        type="symlink",
+        path=target.path / "missing-skill",
+        target_path=None,
+        status="broken",
+        skill=None,
+    )
+    assert cli._repair_selected(statuses=[skipped], project_root=tmp_path) == 0
+
+    monkeypatch.setattr(cli, "uninstall_skill", lambda skill_name, target_dir: False)
+    assert cli._remove_selected(statuses=[status], project_root=tmp_path) == 0
+    assert "Not found:" in capsys.readouterr().out
 
 
 def test_select_targets_interactive_preselects_defaults(monkeypatch, tmp_path):

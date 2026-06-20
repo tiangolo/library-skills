@@ -539,6 +539,110 @@ async function selectInstalledSkillsInteractive(
 	});
 }
 
+function syncTargetDirs({
+	projectRoot,
+	includeClaude,
+	yes,
+	check,
+}: {
+	projectRoot: string;
+	includeClaude?: boolean;
+	yes?: boolean;
+	check?: boolean;
+}): InstallTarget[] {
+	const targetsByName = new Map(
+		getExistingTargetDirs(projectRoot).map((target) => [target.name, target]),
+	);
+	const defaultTargets =
+		yes || check || includeClaude
+			? getTargetDirs(projectRoot, { includeClaude })
+			: getDefaultInstallTargetDirs(projectRoot);
+	for (const target of defaultTargets) {
+		targetsByName.set(target.name, target);
+	}
+	return [...targetsByName.values()];
+}
+
+function repairableStatuses(statuses: InstalledStatus[]): InstalledStatus[] {
+	return statuses.filter(
+		(status) =>
+			status.type === "symlink" &&
+			(status.status === "broken" || status.status === "outdated") &&
+			status.skill !== null,
+	);
+}
+
+function removableStatuses(statuses: InstalledStatus[]): InstalledStatus[] {
+	return statuses.filter(
+		(status) =>
+			status.type === "symlink" &&
+			(status.status === "orphaned" ||
+				(status.status === "broken" && status.skill === null)),
+	);
+}
+
+async function selectStatusesInteractive(
+	statuses: InstalledStatus[],
+	action: string,
+): Promise<InstalledStatus[]> {
+	if (statuses.length === 0) {
+		return [];
+	}
+	return checkbox<InstalledStatus>({
+		message: `Select skills to ${action} (press Space to select, Enter to confirm):`,
+		choices: statuses.map((status) => ({
+			name: `${status.name} [${status.target.name}]`,
+			value: status,
+			checked: true,
+		})),
+	});
+}
+
+function repairSelected({
+	statuses,
+	projectRoot,
+}: {
+	statuses: InstalledStatus[];
+	projectRoot: string;
+}): number {
+	let repairedCount = 0;
+	for (const status of statuses) {
+		installSkill(status.skill as Skill, status.target.path);
+		console.log(
+			`Repaired: ${status.name} (${status.target.name}) -> ${displayPath(
+				status.path,
+				projectRoot,
+			)}`,
+		);
+		repairedCount++;
+	}
+	return repairedCount;
+}
+
+function removeSelected({
+	statuses,
+	projectRoot,
+}: {
+	statuses: InstalledStatus[];
+	projectRoot: string;
+}): number {
+	let removedCount = 0;
+	for (const status of statuses) {
+		if (uninstallSkill(status.name, status.target.path)) {
+			console.log(
+				`Removed ${status.status} symlink: ${status.name} (${status.target.name}) -> ${displayPath(
+					status.path,
+					projectRoot,
+				)}`,
+			);
+			removedCount++;
+		} else {
+			console.log(`Not found: ${status.name} (${status.target.name})`);
+		}
+	}
+	return removedCount;
+}
+
 function installSelected({
 	skills,
 	targets,
@@ -578,12 +682,12 @@ function installSelected({
 async function sync(options: GlobalOptions): Promise<void> {
 	const context = getProjectContext();
 	const result = scanContext(context);
-	let targets =
-		options.yes || options.check || options.claude
-			? getTargetDirs(context.projectRoot, {
-					includeClaude: options.claude,
-				})
-			: getDefaultInstallTargetDirs(context.projectRoot);
+	let targets = syncTargetDirs({
+		projectRoot: context.projectRoot,
+		includeClaude: options.claude,
+		yes: options.yes,
+		check: options.check,
+	});
 
 	printContext(context);
 	console.log();
@@ -626,14 +730,27 @@ async function sync(options: GlobalOptions): Promise<void> {
 		return;
 	}
 
-	for (const status of drift) {
-		if (
-			options.yes &&
-			(status.status === "broken" || status.status === "outdated") &&
-			status.skill
-		) {
-			installSkill(status.skill, status.target.path);
-		}
+	const repairable = repairableStatuses(drift);
+	const removable = removableStatuses(drift);
+	if (drift.length > 0) {
+		console.log();
+		console.log("Some installed skills need attention.");
+		console.log("Select the skills to install, repair, or remove.");
+		console.log("Only managed symlinks will be changed.");
+	}
+	const selectedRepairs = options.yes
+		? repairable
+		: await selectStatusesInteractive(repairable, "repair");
+	const selectedRemovals = options.yes
+		? removable
+		: await selectStatusesInteractive(removable, "remove");
+	if (selectedRepairs.length > 0) {
+		console.log();
+		repairSelected({ statuses: selectedRepairs, projectRoot: context.projectRoot });
+	}
+	if (selectedRemovals.length > 0) {
+		console.log();
+		removeSelected({ statuses: selectedRemovals, projectRoot: context.projectRoot });
 	}
 
 	let selected = filterInstallableSkills({
@@ -673,6 +790,13 @@ async function sync(options: GlobalOptions): Promise<void> {
 		});
 		console.log();
 		console.log(`Installed ${installedCount} skill target(s).`);
+	}
+	if (
+		selectedRepairs.length === 0 &&
+		selectedRemovals.length === 0 &&
+		selected.length === 0
+	) {
+		console.log("No changes needed.");
 	}
 }
 
@@ -829,7 +953,7 @@ export function createProgram(): Command {
 	program
 		.name("library-skills")
 		.description(
-			"Discover and install agent skills from installed library packages.",
+			"Discover and reconcile agent skills from installed library packages.",
 		)
 		.option("--claude", "Also manage .claude/skills alongside .agents/skills")
 		.option("-y, --yes", "Skip confirmation prompts")
@@ -943,7 +1067,13 @@ export const testing = {
 	installSelected,
 	installedStatuses,
 	listCommand,
+	removableStatuses,
+	removeSelected,
+	repairSelected,
+	repairableStatuses,
 	scanCommand,
+	selectStatusesInteractive,
+	syncTargetDirs,
 	sync,
 	topLevelSkills,
 	displayPath,

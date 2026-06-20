@@ -55,9 +55,13 @@ In JavaScript/TypeScript, you can install them with:
 $ npx library-skills
 ```
 
-This will scan the dependencies for the current project, find the installed libraries, and ask you which of their skills you want to install in the project.
+This will scan the dependencies for the current project, find the installed libraries, and show the current skill installation status.
 
-Then it will ask where to install them and add them as symbolic links, so when you update the libraries, the skills are updated too.
+It can install new skills, repair managed symlinks that point to old skill locations, and remove managed symlinks for packages or skills that disappeared.
+
+It will only remove managed symlinks, not hand-authored skill directories.
+
+Then it will ask where to install new skills and add them as symbolic links, so when you update the libraries, the skills are updated too.
 
 By default it selects `.agents/skills`, the agent-neutral target. If the project already has a `.claude/` directory, it selects `.claude/skills` too.
 

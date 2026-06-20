@@ -33,7 +33,9 @@ This command will:
 * Check the **dependencies** you have defined, in `pyproject.toml` or `package.json`.
 * Scan your project installation **environment**, e.g. a `.venv` directory or PEP 832 `.venv` redirect file in Python, or `node_modules` in Node.js.
 * Find the **skills** available from the libraries you have installed, by default, filtered by your direct dependencies.
-* Ask you which skills you want to **install**.
+* Show the current skill installation status, including skills to install, repair, remove, or skip.
+* Ask you which managed skill symlinks you want to **repair** or **remove**.
+* Ask you which new skills you want to **install**.
 * Ask which **installation targets** to use (`.agents/skills` or `.claude/skills`).
 * For each skill and target you select, it will create a **symbolic link**. If you are in a system that doesn't support symbolic links, you can make it copy the file with `--copy`.
 
@@ -46,6 +48,60 @@ Only use `--copy` if your system doesn't support symbolic links (e.g. could happ
 By default, it will create symbolic links, which means that if you update the library, its skills will be automatically updated.
 
 ///
+
+## Repairing Installed Skills
+
+Run the default command again to reconcile installed skills with the libraries currently installed in your project:
+
+//// tab | Python uvx
+
+```console
+$ uvx library-skills
+```
+
+////
+
+//// tab | Node.js npx
+
+```console
+$ npx library-skills
+```
+
+////
+
+Library Skills can repair managed symlinks when a skill moved to a new location, and it can remove managed symlinks when the package or skill disappeared.
+
+It will not remove hand-authored skill directories or copied skill directories.
+
+The status table can include:
+
+* `new`: a discovered skill that is not installed yet.
+* `up to date`: an installed symlink already pointing at the current skill.
+* `broken`: a managed symlink whose target no longer exists.
+* `outdated`: a managed symlink for a skill that still exists but points at an old location.
+* `orphaned`: a managed symlink for a skill that is no longer discovered from installed packages.
+* `name mismatch`: a symlink whose directory name does not match the skill it points to.
+* `hand-authored`: a directory that is not managed as a symlink.
+
+For non-interactive cleanup of managed symlink drift, use:
+
+//// tab | Python uvx
+
+```console
+$ uvx library-skills --yes
+```
+
+////
+
+//// tab | Node.js npx
+
+```console
+$ npx library-skills --yes
+```
+
+////
+
+Use `--check` to validate the current state without changing files. It exits with status code 1 if installs drift.
 
 ## Agents
 

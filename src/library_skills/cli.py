@@ -69,7 +69,7 @@ console = Console(theme=Theme(RICH_THEME))
 
 app = typer.Typer(
     name="library-skills",
-    help="Discover and install agent skills from installed library packages.",
+    help="Discover and reconcile agent skills from installed library packages.",
     invoke_without_command=True,
 )
 
@@ -520,6 +520,99 @@ def _select_installed_skills_interactive(
     )
 
 
+def _sync_target_dirs(
+    *, project_root: Path, include_claude: bool, yes: bool, check: bool
+) -> list[InstallTarget]:
+    targets_by_name = {
+        target.name: target for target in get_existing_target_dirs(project_root)
+    }
+    default_targets = (
+        get_target_dirs(project_root, include_claude=include_claude)
+        if yes or check or include_claude
+        else get_default_install_target_dirs(project_root)
+    )
+    for target in default_targets:
+        targets_by_name[target.name] = target
+    return list(targets_by_name.values())
+
+
+def _repairable_statuses(statuses: list[InstalledStatus]) -> list[InstalledStatus]:
+    return [
+        status
+        for status in statuses
+        if status.type == "symlink"
+        and status.status in {"broken", "outdated"}
+        and status.skill is not None
+    ]
+
+
+def _removable_statuses(statuses: list[InstalledStatus]) -> list[InstalledStatus]:
+    return [
+        status
+        for status in statuses
+        if status.type == "symlink"
+        and (
+            status.status == "orphaned"
+            or (status.status == "broken" and status.skill is None)
+        )
+    ]
+
+
+def _select_statuses_interactive(
+    statuses: list[InstalledStatus], *, action: str
+) -> list[InstalledStatus]:
+    if not statuses:
+        return []
+    toolkit = _get_rich_toolkit()
+    menu = Menu(
+        f"Select skills to {action} (press Space to select, Enter to confirm):",
+        options=[
+            Option(
+                {
+                    "name": f"{status.name} [{status.target.name}]",
+                    "value": status,
+                }
+            )
+            for status in statuses
+        ],
+        style=toolkit.style,
+        console=toolkit.console,
+        multiple=True,
+    )
+    menu.checked = set(range(len(statuses)))
+    return menu.ask()
+
+
+def _repair_selected(*, statuses: list[InstalledStatus], project_root: Path) -> int:
+    repaired_count = 0
+    for status in statuses:
+        if status.skill is None:
+            continue
+        install_skill(status.skill, status.target.path)
+        console.print(
+            f"Repaired: [bold]{status.name}[/bold] ({status.target.name}) -> "
+            f"{_display_path(status.path, project_root)}"
+        )
+        repaired_count += 1
+    return repaired_count
+
+
+def _remove_selected(*, statuses: list[InstalledStatus], project_root: Path) -> int:
+    removed_count = 0
+    for status in statuses:
+        if uninstall_skill(status.name, status.target.path):
+            console.print(
+                f"Removed {status.status} symlink: [bold]{status.name}[/bold] "
+                f"({status.target.name}) -> {_display_path(status.path, project_root)}"
+            )
+            removed_count += 1
+        else:
+            console.print(
+                f"Not found: [bold]{status.name}[/bold] ({status.target.name})"
+            )
+    return removed_count
+
+
 def _install_selected(
     *,
     skills: list[Skill],
@@ -554,10 +647,11 @@ def _sync(
 ) -> None:
     context = _get_project_context()
     result = _scan_context(context)
-    targets = (
-        get_target_dirs(context.project_root, include_claude=include_claude)
-        if yes or check or include_claude
-        else get_default_install_target_dirs(context.project_root)
+    targets = _sync_target_dirs(
+        project_root=context.project_root,
+        include_claude=include_claude,
+        yes=yes,
+        check=check,
     )
 
     _print_context(context)
@@ -598,16 +692,26 @@ def _sync(
             raise typer.Exit(1)
         return
 
-    repairable = [
-        status
-        for status in drift
-        if status.status in {"broken", "outdated"} and status.skill is not None
-    ]
-    for status in repairable:
-        if yes:
-            skill = status.skill
-            if skill is not None:
-                install_skill(skill, status.target.path)
+    repairable = _repairable_statuses(drift)
+    removable = _removable_statuses(drift)
+    if drift:
+        console.print()
+        console.print("Some installed skills need attention.")
+        console.print("Select the skills to install, repair, or remove.")
+        console.print("Only managed symlinks will be changed.")
+
+    selected_repairs = (
+        repairable if yes else _select_statuses_interactive(repairable, action="repair")
+    )
+    selected_removals = (
+        removable if yes else _select_statuses_interactive(removable, action="remove")
+    )
+    if selected_repairs:
+        console.print()
+        _repair_selected(statuses=selected_repairs, project_root=context.project_root)
+    if selected_removals:
+        console.print()
+        _remove_selected(statuses=selected_removals, project_root=context.project_root)
 
     selected = _filter_installable_skills(
         candidate_skills,
@@ -638,6 +742,8 @@ def _sync(
         )
         console.print()
         console.print(f"Installed {installed_count} skill target(s).")
+    if not selected_repairs and not selected_removals and not selected:
+        console.print("No changes needed.")
 
 
 @app.callback()
@@ -667,7 +773,7 @@ def callback(
         ),
     ] = None,
 ) -> None:
-    """Discover and install agent skills from installed library packages."""
+    """Discover and reconcile agent skills from installed library packages."""
     if ctx.invoked_subcommand is None:
         _sync(
             include_claude=include_claude,
