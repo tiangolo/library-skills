@@ -2,8 +2,11 @@
 
 ## Latest Changes
 
+## 0.0.6 (2026-06-20)
+
 ### Fixes
 
+* 🐛 Fix finding skills in editable installs in the Node.js version. PR [#112](https://github.com/tiangolo/library-skills/pull/112) by [@tiangolo](https://github.com/tiangolo).
 * 🐛 Fix scanning editable project. PR [#110](https://github.com/tiangolo/library-skills/pull/110) by [@tiangolo](https://github.com/tiangolo).
 
 ### Upgrades
@@ -16,6 +19,7 @@
 
 ### Internal
 
+* 👷 Add CI to automate release process. PR [#111](https://github.com/tiangolo/library-skills/pull/111) by [@tiangolo](https://github.com/tiangolo).
 * ⬆ Bump the python-packages group with 5 updates. PR [#103](https://github.com/tiangolo/library-skills/pull/103) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump pymdown-extensions from 10.21.2 to 10.21.3. PR [#90](https://github.com/tiangolo/library-skills/pull/90) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump idna from 3.13 to 3.15. PR [#91](https://github.com/tiangolo/library-skills/pull/91) by [@dependabot[bot]](https://github.com/apps/dependabot).
