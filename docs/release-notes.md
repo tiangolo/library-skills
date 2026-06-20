@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.6 (2026-06-20)
+
 ### Fixes
 
 * 🐛 Fix finding skills in editable installs in the Node.js version. PR [#112](https://github.com/tiangolo/library-skills/pull/112) by [@tiangolo](https://github.com/tiangolo).
