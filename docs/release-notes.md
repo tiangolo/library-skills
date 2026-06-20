@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Internal
+
+* 🔧 Configure CI labeler, do not mark as docs internal changes. PR [#125](https://github.com/tiangolo/library-skills/pull/125) by [@tiangolo](https://github.com/tiangolo).
+
 ## 0.0.10 (2026-06-20)
 
 ### Fixes
