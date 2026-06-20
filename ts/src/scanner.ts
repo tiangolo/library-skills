@@ -137,6 +137,9 @@ function iterNodePackageRoots(nodeModules: string): string[] {
 		if (!isDirectory(fullPath)) {
 			continue;
 		}
+		if (entry.startsWith(".")) {
+			continue;
+		}
 		if (entry.startsWith("@")) {
 			for (const scopedEntry of readdirSync(fullPath).sort()) {
 				const scopedPath = join(fullPath, scopedEntry);

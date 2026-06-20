@@ -137,6 +137,8 @@ def test_scan_node_packages_warns_for_missing_or_invalid_metadata(tmp_path):
     node_modules = tmp_path / "node_modules"
     node_modules.mkdir()
     (node_modules / "README.md").write_text("not a package", encoding="utf-8")
+    (node_modules / ".bin").mkdir()
+    (node_modules / ".vite-temp").mkdir()
     package_root = node_modules / "bad-pkg"
     write_skill(package_root, "bad-skill")
     array_package = node_modules / "array-pkg"
