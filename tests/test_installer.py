@@ -66,8 +66,8 @@ def test_default_install_target_dirs_follow_project_state(tmp_path):
     ] == ["claude-compatible"]
 
     both_project = tmp_path / "both-project"
-    (both_project / ".agents" / "skills").mkdir(parents=True)
-    (both_project / ".claude" / "skills").mkdir(parents=True)
+    (both_project / ".agents").mkdir(parents=True)
+    (both_project / ".claude").mkdir(parents=True)
     assert [
         target.name for target in get_default_install_target_dirs(both_project)
     ] == [

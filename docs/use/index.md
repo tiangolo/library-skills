@@ -34,7 +34,7 @@ This command will:
 * Scan your project installation **environment**, e.g. a `.venv` directory or PEP 832 `.venv` redirect file in Python, or `node_modules` in Node.js.
 * Find the **skills** available from the libraries you have installed, by default, filtered by your direct dependencies.
 * Ask you which skills you want to **install**.
-* Ask which **installation targets** to use (`.agents` or `.claude`).
+* Ask which **installation targets** to use (`.agents/skills` or `.claude/skills`).
 * For each skill and target you select, it will create a **symbolic link**. If you are in a system that doesn't support symbolic links, you can make it copy the file with `--copy`.
 
 In uv workspaces, Library Skills uses the workspace environment and filters by the workspace member you run it from. In npm and Bun workspaces, it keeps normal `node_modules` discovery and applies the same workspace-aware dependency filtering. When you run it from the workspace root, it uses the root and all workspace members.
@@ -62,9 +62,9 @@ This will work with AI Agents that support the `.agents` directory (most of them
 
 If you are using Claude Code, it doesn't support the `.agents` directory, only the `.claude` directory.
 
-When Library Skills asks for installation targets, select `.claude`.
+When Library Skills asks for installation targets, select `.claude/skills`.
 
-For non-interactive installs, use `--claude` to install in `.claude` too.
+For non-interactive installs, use `--claude` to install in `.claude/skills` too.
 
 //// tab | Python uvx
 

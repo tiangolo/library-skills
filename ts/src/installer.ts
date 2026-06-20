@@ -60,10 +60,10 @@ export function getDefaultInstallTargetDirs(projectRoot: string): InstallTarget[
   const [universal, claude] = getAllTargetDirs(projectRoot);
 
   const selected: InstallTarget[] = [];
-  if (existsSync(join(projectRoot, ".agents")) || existsSync(universal.path)) {
+  if (existsSync(join(projectRoot, ".agents"))) {
     selected.push(universal);
   }
-  if (existsSync(join(projectRoot, ".claude")) || existsSync(claude.path)) {
+  if (existsSync(join(projectRoot, ".claude"))) {
     selected.push(claude);
   }
 

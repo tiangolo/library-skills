@@ -63,11 +63,9 @@ def get_default_install_target_dirs(project_root: Path) -> list[InstallTarget]:
     by_name = {target.name: target for target in targets}
     selected: list[InstallTarget] = []
 
-    if (project_root / ".agents").exists() or by_name["universal"].path.exists():
+    if (project_root / ".agents").exists():
         selected.append(by_name["universal"])
-    if (project_root / ".claude").exists() or by_name[
-        "claude-compatible"
-    ].path.exists():
+    if (project_root / ".claude").exists():
         selected.append(by_name["claude-compatible"])
 
     if not selected:

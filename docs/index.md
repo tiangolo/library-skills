@@ -59,11 +59,11 @@ This will scan the dependencies for the current project, find the installed libr
 
 Then it will ask where to install them and add them as symbolic links, so when you update the libraries, the skills are updated too.
 
-By default it selects `.agents`, the agent-neutral target. If the project already has a `.claude` directory, it selects `.claude` too.
+By default it selects `.agents/skills`, the agent-neutral target. If the project already has a `.claude/` directory, it selects `.claude/skills` too.
 
 /// tip
 
-If you are using Claude Code, select `.claude` when asked for installation targets, as Claude Code doesn't support the standard `.agents` directory. For non-interactive installs, add the `--claude` CLI option to install the skills in `.claude` too.
+If you are using Claude Code, select `.claude/skills` when asked for installation targets, as Claude Code doesn't support the standard `.agents` directory. For non-interactive installs, add the `--claude` CLI option to install the skills in `.claude/skills` too.
 
 ///
 

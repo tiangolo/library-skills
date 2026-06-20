@@ -901,7 +901,7 @@ describe("installer", () => {
     expect(getDefaultInstallTargetDirs(root)).toEqual([
       { name: "claude-compatible", path: join(root, ".claude", "skills") },
     ]);
-    mkdirSync(join(root, ".agents", "skills"), { recursive: true });
+    mkdirSync(join(root, ".agents"), { recursive: true });
     expect(getDefaultInstallTargetDirs(root)).toEqual([
       { name: "universal", path: join(root, ".agents", "skills") },
       { name: "claude-compatible", path: join(root, ".claude", "skills") },
