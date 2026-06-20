@@ -12,6 +12,7 @@
 
 ### Internal
 
+* ⬆ Bump the python-packages group with 5 updates. PR [#103](https://github.com/tiangolo/library-skills/pull/103) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump pymdown-extensions from 10.21.2 to 10.21.3. PR [#90](https://github.com/tiangolo/library-skills/pull/90) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump idna from 3.13 to 3.15. PR [#91](https://github.com/tiangolo/library-skills/pull/91) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump @inquirer/checkbox from 5.1.4 to 5.2.1. PR [#98](https://github.com/tiangolo/library-skills/pull/98) by [@dependabot[bot]](https://github.com/apps/dependabot).
