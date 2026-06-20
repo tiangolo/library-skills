@@ -336,6 +336,20 @@ function findCollisions(skills: Skill[]): Set<string> {
 	);
 }
 
+function deduplicateSkills(skills: Skill[]): Skill[] {
+	const seen = new Set<string>();
+	const unique: Skill[] = [];
+	for (const skill of skills) {
+		const key = resolve(skill.skillDir);
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		unique.push(skill);
+	}
+	return unique;
+}
+
 function filterInstallableSkills({
 	skills,
 	selectedNames,
@@ -637,7 +651,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 			.filter((status) => status.status === "new" && status.skill !== null)
 			.map((status) => status.skill as Skill);
 		if (newSkills.length > 0) {
-			selected = await selectSkillsInteractive(newSkills);
+			selected = await selectSkillsInteractive(deduplicateSkills(newSkills));
 		}
 	}
 

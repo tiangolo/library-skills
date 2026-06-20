@@ -1230,6 +1230,43 @@ def test_default_command_interactive_selection_installs_selected_skill(
     assert installed.resolve() == skill_dir.resolve()
 
 
+def test_default_command_deduplicates_new_skills_across_targets(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    (project / ".agents").mkdir()
+    (project / ".claude").mkdir()
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    skill_dir = write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    prompt_counts: list[int] = []
+    monkeypatch.chdir(project)
+
+    def select_skills(skills: list[cli.Skill]) -> list[cli.Skill]:
+        prompt_counts.append(len(skills))
+        return skills
+
+    with (
+        patch.object(cli, "_select_skills_interactive", select_skills),
+        patch.object(
+            cli,
+            "_select_targets_interactive",
+            lambda project_root, default_targets: default_targets,
+        ),
+    ):
+        result = runner.invoke(app)
+
+    assert result.exit_code == 0
+    assert prompt_counts == [1]
+    assert (project / ".agents" / "skills" / "demo-skill").resolve() == skill_dir
+    assert (project / ".claude" / "skills" / "demo-skill").resolve() == skill_dir
+
+
 def test_remove_interactive_selection_removes_selected_skill(tmp_path, monkeypatch):
     project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
     site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"

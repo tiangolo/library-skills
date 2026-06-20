@@ -371,6 +371,18 @@ def _find_collisions(skills: list[Skill]) -> set[str]:
     return {name for name, count in counts.items() if count > 1}
 
 
+def _deduplicate_skills(skills: list[Skill]) -> list[Skill]:
+    seen: set[Path] = set()
+    unique: list[Skill] = []
+    for skill in skills:
+        key = skill.skill_dir.resolve()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(skill)
+    return unique
+
+
 def _filter_installable_skills(
     skills: list[Skill],
     *,
@@ -609,7 +621,7 @@ def _sync(
             if status.status == "new" and status.skill is not None
         ]
         if new_skills:
-            selected = _select_skills_interactive(new_skills)
+            selected = _select_skills_interactive(_deduplicate_skills(new_skills))
 
     if selected:
         targets = _select_install_targets(

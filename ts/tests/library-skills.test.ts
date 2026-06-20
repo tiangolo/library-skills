@@ -1767,6 +1767,27 @@ test("CLI sync covers check mode, interactive installs, and automatic drift repa
   expect(log).toHaveBeenCalledWith("Installed 2 skill target(s).");
 });
 
+test("CLI sync deduplicates new skills across selected targets", async () => {
+  const project = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(project);
+  mkdirSync(join(project, ".agents"));
+  mkdirSync(join(project, ".claude"));
+
+  vi.mocked(checkbox)
+    .mockImplementationOnce(async (prompt) => {
+      expect(prompt.choices.map((choice) => choice.name)).toEqual([
+        "top-skill (top-level-pkg)",
+      ]);
+      return [prompt.choices[0].value];
+    })
+    .mockImplementationOnce(async (prompt) => prompt.choices.map((choice) => choice.value));
+
+  await cliTesting.sync({});
+
+  expect(lstatSync(join(project, ".agents", "skills", "top-skill")).isSymbolicLink()).toBe(true);
+  expect(lstatSync(join(project, ".claude", "skills", "top-skill")).isSymbolicLink()).toBe(true);
+});
+
 function tempDir(): string {
   const directory = mkdtempSync(join(tmpdir(), "library-skills-ts-"));
   tempDirs.push(directory);
