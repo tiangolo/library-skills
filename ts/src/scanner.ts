@@ -77,6 +77,7 @@ export function scanPythonDistributions(sitePackages: string): ScanResult {
 		if (found.skills.length === 0) {
 			const fallback = scanEditableDirectUrl({
 				distInfo,
+				sitePackages,
 				packageName: dist.name,
 				packageVersion: dist.version,
 				seenSkillDirs,
@@ -298,11 +299,13 @@ function isSkillFileRecord(installedPath: string): boolean {
 
 function scanEditableDirectUrl({
 	distInfo,
+	sitePackages,
 	packageName,
 	packageVersion,
 	seenSkillDirs,
 }: {
 	distInfo: string;
+	sitePackages?: string;
 	packageName: string;
 	packageVersion: string;
 	seenSkillDirs: Set<string>;
@@ -316,6 +319,9 @@ function scanEditableDirectUrl({
 	for (const skillMd of findSkillMarkdownFiles(sourceRoot)) {
 		const resolvedSkillMd = realpathOrResolve(skillMd);
 		if (!isRelativeTo(resolvedSkillMd, sourceRoot)) {
+			continue;
+		}
+		if (sitePackages && isRelativeTo(resolvedSkillMd, sitePackages)) {
 			continue;
 		}
 
