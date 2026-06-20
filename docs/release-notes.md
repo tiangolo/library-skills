@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.14 (2026-06-20)
+
 ### Features
 
 * ✨ Add top level --copy option (it was already documented that way). PR [#131](https://github.com/tiangolo/library-skills/pull/131) by [@tiangolo](https://github.com/tiangolo).
