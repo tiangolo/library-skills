@@ -120,7 +120,13 @@ def install_skill(
         shutil.copytree(source, dest)
     else:
         link_target = _get_symlink_target(source=source, dest=dest)
-        dest.symlink_to(link_target, target_is_directory=True)
+        try:
+            dest.symlink_to(link_target, target_is_directory=True)
+        except OSError as e:
+            raise InstallError(
+                f"Could not create symlink: {e}. "
+                "Use --copy if your system does not support symlinks."
+            ) from e
 
     return dest
 

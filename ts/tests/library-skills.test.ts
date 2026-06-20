@@ -894,6 +894,17 @@ describe("installer", () => {
     ).toThrow(InstallError);
   });
 
+  test("reports symlink failures as install errors with copy guidance", () => {
+    const root = tempDir();
+    const source = writeSkill(join(root, "source", "agent"), "agent", "Agent skill.");
+    const targetDir = join(root, ".agents", "skills");
+    const longName = "agent-".repeat(60);
+
+    expect(() =>
+      installSkill(makeSkill({ name: longName, skillDir: source }), targetDir),
+    ).toThrow(/Use --copy/);
+  });
+
   test("covers copy installs, target selection, overwrite guards, and helper fallbacks", () => {
     const root = tempDir();
     const source = writeSkill(join(root, "source", "agent"), "agent", "Agent skill.");
@@ -1624,6 +1635,38 @@ test("CLI install command covers interactive, copy, selected, and skipped instal
       copy: true,
     }),
   ).toThrow();
+});
+
+test("CLI default command supports copy mode for new installs", async () => {
+  const project = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(project);
+  mockConsole();
+
+  vi.mocked(checkbox).mockResolvedValueOnce([
+    makeSkill({
+      name: "top-skill",
+      skillDir: join(
+        project,
+        ".venv",
+        "lib",
+        "python3.12",
+        "site-packages",
+        "top_level_pkg",
+        ".agents",
+        "skills",
+        "top-skill",
+      ),
+    }),
+  ]);
+  vi.mocked(checkbox).mockResolvedValueOnce([
+    { name: "universal", path: join(project, ".agents", "skills") },
+  ]);
+
+  await createProgram().parseAsync(["node", "library-skills", "--copy"]);
+
+  const installed = join(project, ".agents", "skills", "top-skill");
+  expect(lstatSync(installed).isDirectory()).toBe(true);
+  expect(lstatSync(installed).isSymbolicLink()).toBe(false);
 });
 
 test("CLI interactive install can choose Claude targets", async () => {

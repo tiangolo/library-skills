@@ -659,6 +659,7 @@ def _sync(
     check: bool,
     include_all: bool,
     selected_names: list[str],
+    copy: bool,
 ) -> None:
     context = _get_project_context()
     result = _scan_context(context)
@@ -753,7 +754,10 @@ def _sync(
             return
         console.print()
         installed_count = _install_selected(
-            skills=selected, targets=targets, project_root=context.project_root
+            skills=selected,
+            targets=targets,
+            project_root=context.project_root,
+            copy=copy,
         )
         console.print()
         console.print(f"Installed {installed_count} skill target(s).")
@@ -787,6 +791,9 @@ def callback(
             "--skill", "-s", help="Install a specific discovered skill by name"
         ),
     ] = None,
+    copy: Annotated[
+        bool, typer.Option("--copy", help="Copy files instead of creating symlinks")
+    ] = False,
 ) -> None:
     """Discover and reconcile agent skills from installed library packages."""
     if ctx.invoked_subcommand is None:
@@ -796,6 +803,7 @@ def callback(
             check=check,
             include_all=include_all,
             selected_names=selected_names or [],
+            copy=copy,
         )
 
 

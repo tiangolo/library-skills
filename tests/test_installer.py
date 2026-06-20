@@ -121,6 +121,19 @@ def test_install_skill_copy_mode_copies_directory(tmp_path):
     assert (installed_path / "SKILL.md").is_file()
 
 
+def test_install_skill_symlink_failure_raises_install_error(tmp_path, monkeypatch):
+    skill = make_skill(tmp_path)
+    target_dir = tmp_path / ".agents" / "skills"
+
+    def fail_symlink(*args, **kwargs):
+        raise OSError("symlink blocked")
+
+    monkeypatch.setattr(Path, "symlink_to", fail_symlink)
+
+    with pytest.raises(InstallError, match="Use --copy"):
+        install_skill(skill, target_dir)
+
+
 def test_install_skill_refuses_to_overwrite_non_symlink_directory(tmp_path):
     skill = make_skill(tmp_path)
     target_dir = tmp_path / ".agents" / "skills"
