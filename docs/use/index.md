@@ -36,6 +36,8 @@ This command will:
 * Ask you which skills you want to **install**.
 * For each skill you select, it will create a **symbolic link** in the `.agents` directory. If you are in a system that doesn't support symbolic links, you can make it copy the file with `--copy`.
 
+In uv workspaces, Library Skills uses the workspace environment and filters by the workspace member you run it from. When you run it from the workspace root, it uses the root and all workspace members.
+
 /// tip
 
 Only use `--copy` if your system doesn't support symbolic links (e.g. could happen on Windows).
@@ -126,7 +128,7 @@ $ npx library-skills scan --json
 
 ////
 
-The output includes the project root, detected Python environment, detected `node_modules` directory, discovered skills, and any warnings.
+The output includes the project root, detected workspace information (`workspace_root`, `workspace_member`, and `dependency_files`), detected Python environment, detected `node_modules` directory, discovered skills, and any warnings.
 
 Use `list --json` to include the current installation status too:
 

@@ -1,7 +1,12 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { findUvWorkspace } from "./workspace.js";
 
 export function findProjectRoot(cwd: string): string | null {
+  const workspace = findUvWorkspace(cwd);
+  if (workspace !== null) {
+    return workspace.root;
+  }
   for (const directory of ancestors(cwd)) {
     if (
         isFile(join(directory, "pyproject.toml")) ||
@@ -17,6 +22,7 @@ export function findProjectRoot(cwd: string): string | null {
 }
 
 export function findVenv(cwd = process.cwd()): string | null {
+  const workspace = findUvWorkspace(cwd);
   const projectRoot = findProjectRoot(cwd) ?? cwd;
 
   const uvProjectEnvironment = process.env["UV_PROJECT_ENVIRONMENT"];
@@ -27,6 +33,10 @@ export function findVenv(cwd = process.cwd()): string | null {
     if (isVenvDir(path)) {
       return path;
     }
+  }
+
+  if (workspace !== null) {
+    return venvFromDotVenv(workspace.root);
   }
 
   for (const directory of ancestors(cwd)) {

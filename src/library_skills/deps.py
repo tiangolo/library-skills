@@ -22,19 +22,37 @@ def get_python_top_level_deps(project_root: Path) -> set[str] | None:
     if not pyproject.is_file():
         return None
 
-    try:
-        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError):
+    return get_python_top_level_deps_from_files([pyproject])
+
+
+def get_python_top_level_deps_from_files(pyprojects: list[Path]) -> set[str] | None:
+    """Parse one or more pyproject.toml files to get top-level dependencies."""
+    if not pyprojects:
         return None
 
     deps: set[str] = set()
+    found = False
+    for pyproject in pyprojects:
+        if not pyproject.is_file():
+            continue
+        try:
+            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError):
+            return None
+        found = True
+        _extract_python_top_level_deps(data, deps)
+    return deps if found else None
+
+
+def _extract_python_top_level_deps(data: dict[str, object], deps: set[str]) -> None:
     project = data.get("project", {})
     if isinstance(project, dict):
-        dependencies = project.get("dependencies", [])
+        project_data = cast("dict[str, object]", project)
+        dependencies = project_data.get("dependencies", [])
         if isinstance(dependencies, list):
             _extract_deps_from_specs(dependencies, deps)
 
-        optional_dependencies = project.get("optional-dependencies", {})
+        optional_dependencies = project_data.get("optional-dependencies", {})
         if isinstance(optional_dependencies, dict):
             for group_dependencies in optional_dependencies.values():
                 if isinstance(group_dependencies, list):
@@ -42,15 +60,14 @@ def get_python_top_level_deps(project_root: Path) -> set[str] | None:
 
     dependency_groups = data.get("dependency-groups", {})
     if isinstance(dependency_groups, dict):
-        for group_name in dependency_groups:
+        dependency_group_data = cast("dict[str, object]", dependency_groups)
+        for group_name in dependency_group_data:
             _extract_deps_from_dependency_group(
                 group_name,
-                dependency_groups,
+                dependency_group_data,
                 deps,
                 visited=set(),
             )
-
-    return deps
 
 
 def get_node_top_level_deps(project_root: Path) -> set[str] | None:
@@ -96,6 +113,11 @@ def get_top_level_deps(project_root: Path) -> set[str] | None:
     if not dependency_sets:
         return None
     return set().union(*dependency_sets)
+
+
+def get_workspace_top_level_deps(pyprojects: list[Path]) -> set[str] | None:
+    """Parse Python dependency metadata for selected uv workspace files."""
+    return get_python_top_level_deps_from_files(pyprojects)
 
 
 def _extract_deps_from_specs(dep_specs: Sequence[object], deps: set[str]) -> None:

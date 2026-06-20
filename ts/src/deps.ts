@@ -4,45 +4,62 @@ import { parse, type TomlTable } from "smol-toml";
 import { normalizePackageName } from "./scanner.js";
 
 export function getPythonTopLevelDeps(projectRoot: string): Set<string> | null {
-  const pyproject = join(projectRoot, "pyproject.toml");
-  if (!existsSync(pyproject)) {
-    return null;
-  }
+	const pyproject = join(projectRoot, "pyproject.toml");
+	if (!existsSync(pyproject)) {
+		return null;
+	}
+	return getPythonTopLevelDepsFromFiles([pyproject]);
+}
 
-  let data: TomlTable;
-  try {
-    data = parse(readFileSync(pyproject, "utf8"));
-  } catch {
-    return null;
-  }
+export function getPythonTopLevelDepsFromFiles(
+	pyprojects: string[],
+): Set<string> | null {
+	if (pyprojects.length === 0) {
+		return null;
+	}
 
-  const deps = new Set<string>();
+	const deps = new Set<string>();
+	let found = false;
+	for (const pyproject of pyprojects) {
+		if (!existsSync(pyproject)) {
+			continue;
+		}
+		let data: TomlTable;
+		try {
+			data = parse(readFileSync(pyproject, "utf8"));
+		} catch {
+			return null;
+		}
+		found = true;
+		extractPythonTopLevelDeps(data, deps);
+	}
+	return found ? deps : null;
+}
 
-  const project = data["project"];
-  if (isRecord(project)) {
-    const dependencies = project["dependencies"];
-    if (Array.isArray(dependencies)) {
-      extractDepsFromSpecs(dependencies, deps);
-    }
+function extractPythonTopLevelDeps(data: TomlTable, deps: Set<string>): void {
+	const project = data["project"];
+	if (isRecord(project)) {
+		const dependencies = project["dependencies"];
+		if (Array.isArray(dependencies)) {
+			extractDepsFromSpecs(dependencies, deps);
+		}
 
-    const optionalDependencies = project["optional-dependencies"];
-    if (isRecord(optionalDependencies)) {
-      for (const groupDependencies of Object.values(optionalDependencies)) {
-        if (Array.isArray(groupDependencies)) {
-          extractDepsFromSpecs(groupDependencies, deps);
-        }
-      }
-    }
-  }
+		const optionalDependencies = project["optional-dependencies"];
+		if (isRecord(optionalDependencies)) {
+			for (const groupDependencies of Object.values(optionalDependencies)) {
+				if (Array.isArray(groupDependencies)) {
+					extractDepsFromSpecs(groupDependencies, deps);
+				}
+			}
+		}
+	}
 
-  const dependencyGroups = data["dependency-groups"];
-  if (isRecord(dependencyGroups)) {
-    for (const groupName of Object.keys(dependencyGroups)) {
-      extractDepsFromDependencyGroup(groupName, dependencyGroups, deps, new Set());
-    }
-  }
-
-  return deps;
+	const dependencyGroups = data["dependency-groups"];
+	if (isRecord(dependencyGroups)) {
+		for (const groupName of Object.keys(dependencyGroups)) {
+			extractDepsFromDependencyGroup(groupName, dependencyGroups, deps, new Set());
+		}
+	}
 }
 
 export function getNodeTopLevelDeps(projectRoot: string): Set<string> | null {
@@ -92,16 +109,20 @@ export function getTopLevelDeps(projectRoot: string): Set<string> | null {
 	return new Set(dependencySets.flatMap((deps) => [...deps]));
 }
 
+export function getWorkspaceTopLevelDeps(pyprojects: string[]): Set<string> | null {
+	return getPythonTopLevelDepsFromFiles(pyprojects);
+}
+
 function extractDepsFromSpecs(depSpecs: unknown[], deps: Set<string>): void {
-  for (const depSpec of depSpecs) {
-    if (typeof depSpec !== "string") {
-      continue;
-    }
-    const packageName = depSpec.split(/[~>=<![\];,\s]/)[0]?.trim();
-    if (packageName && !packageName.startsWith("#")) {
-      deps.add(normalizePackageName(packageName));
-    }
-  }
+	for (const depSpec of depSpecs) {
+		if (typeof depSpec !== "string") {
+			continue;
+		}
+		const packageName = depSpec.split(/[~>=<![\];,\s]/)[0]?.trim();
+		if (packageName && !packageName.startsWith("#")) {
+			deps.add(normalizePackageName(packageName));
+		}
+	}
 }
 
 function extractDepsFromDependencyGroup(
@@ -110,36 +131,36 @@ function extractDepsFromDependencyGroup(
   deps: Set<string>,
   visited: Set<unknown>,
 ): void {
-  if (visited.has(groupName)) {
-    return;
-  }
-  visited.add(groupName);
+	if (visited.has(groupName)) {
+		return;
+	}
+	visited.add(groupName);
 
-  if (typeof groupName !== "string") {
-    return;
-  }
+	if (typeof groupName !== "string") {
+		return;
+	}
 
-  const groupDependencies = dependencyGroups[groupName];
-  if (!Array.isArray(groupDependencies)) {
-    return;
-  }
+	const groupDependencies = dependencyGroups[groupName];
+	if (!Array.isArray(groupDependencies)) {
+		return;
+	}
 
-  extractDepsFromSpecs(groupDependencies, deps);
-  for (const groupDependency of groupDependencies) {
-    if (!isRecord(groupDependency)) {
-      continue;
-    }
-    extractDepsFromDependencyGroup(
-      groupDependency["include-group"],
-      dependencyGroups,
-      deps,
-      visited,
-    );
-  }
+	extractDepsFromSpecs(groupDependencies, deps);
+	for (const groupDependency of groupDependencies) {
+		if (!isRecord(groupDependency)) {
+			continue;
+		}
+		extractDepsFromDependencyGroup(
+			groupDependency["include-group"],
+			dependencyGroups,
+			deps,
+			visited,
+		);
+	}
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export const testing = {

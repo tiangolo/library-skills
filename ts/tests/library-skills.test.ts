@@ -20,6 +20,7 @@ import { createProgram, main, testing as cliTesting } from "../src/cli.js";
 import {
   getNodeTopLevelDeps,
   getPythonTopLevelDeps,
+  getPythonTopLevelDepsFromFiles,
   getTopLevelDeps,
   testing as depsTesting,
 } from "../src/deps.js";
@@ -37,6 +38,10 @@ import {
   findVenv,
   getSitePackagesDir,
 } from "../src/python-env.js";
+import {
+  findUvWorkspace,
+  workspaceDependencyFiles,
+} from "../src/workspace.js";
 import {
   normalizePackageName,
   scanNodePackages,
@@ -563,6 +568,69 @@ test("handles missing, invalid, and partial pyproject dependency metadata", () =
   const packageArray = tempDir();
   writeFileSync(join(packageArray, "package.json"), "[]");
   expect(getNodeTopLevelDeps(packageArray)).toEqual(new Set());
+
+  expect(getPythonTopLevelDepsFromFiles([])).toBeNull();
+  expect(getPythonTopLevelDepsFromFiles([join(tempDir(), "missing.toml")])).toBeNull();
+});
+
+test("discovers uv workspace members and dependency files", () => {
+  const project = writeWorkspace();
+  const api = join(project, "packages", "api");
+  const ignored = join(project, "packages", "ignored");
+  const skipOne = join(project, "packages", "skip-one");
+  const nested = join(api, "src");
+  mkdirSync(nested, { recursive: true });
+  mkdirSync(ignored, { recursive: true });
+  mkdirSync(skipOne, { recursive: true });
+  writeFileSync(join(ignored, "pyproject.toml"), "[project]\nname = 'ignored'\n");
+  writeFileSync(join(skipOne, "pyproject.toml"), "[project]\nname = 'skip-one'\n");
+  writeFileSync(
+    join(project, "pyproject.toml"),
+    [
+      "[tool.uv.workspace]",
+      'members = [1, "packages/*", "missing/*"]',
+      'exclude = [1, "packages/ignored", "packages/skip-*"]',
+      "",
+    ].join("\n"),
+  );
+
+  const workspace = findUvWorkspace(nested);
+  const rootWorkspace = findUvWorkspace(project);
+
+  expect(workspace).toMatchObject({
+    root: project,
+    currentMember: api,
+  });
+  expect(workspace?.members).toEqual([
+    join(project, "packages", "api"),
+    join(project, "packages", "worker"),
+  ]);
+  expect(workspace ? workspaceDependencyFiles(workspace) : []).toEqual([
+    join(api, "pyproject.toml"),
+  ]);
+  expect(rootWorkspace?.currentMember).toBeNull();
+  expect(rootWorkspace ? workspaceDependencyFiles(rootWorkspace) : []).toEqual([
+    join(project, "pyproject.toml"),
+    join(project, "packages", "api", "pyproject.toml"),
+    join(project, "packages", "worker", "pyproject.toml"),
+  ]);
+  const plugin = join(api, "plugins", "demo");
+  mkdirSync(plugin, { recursive: true });
+  writeFileSync(join(plugin, "pyproject.toml"), "[project]\nname = 'plugin'\n");
+  writeFileSync(
+    join(project, "pyproject.toml"),
+    [
+      "[tool.uv.workspace]",
+      'members = ["packages/*", "packages/api/plugins/*"]',
+      "",
+    ].join("\n"),
+  );
+  expect(findUvWorkspace(plugin)?.currentMember).toBe(plugin);
+  writeFileSync(join(project, "pyproject.toml"), "[tool.uv.workspace]\n");
+  expect(findUvWorkspace(project)).toMatchObject({ members: [] });
+  writeFileSync(join(project, "pyproject.toml"), "[tool]\nuv = 'not a table'\n");
+  expect(findUvWorkspace(project)).toBeNull();
+  expect(findUvWorkspace(tempDir())).toBeNull();
 });
 
 test("resolves project virtualenvs and site-packages", () => {
@@ -684,6 +752,20 @@ test("honors UV_PROJECT_ENVIRONMENT before local .venv", () => {
   expect(findVenv(project)).toBe(uvEnv);
 });
 
+test("resolves UV_PROJECT_ENVIRONMENT relative to uv workspace root", () => {
+  const project = writeWorkspace();
+  const api = join(project, "packages", "api");
+  const workspaceEnv = join(project, ".custom-env");
+  const memberEnv = join(api, ".custom-env");
+  mkdirSync(workspaceEnv, { recursive: true });
+  mkdirSync(memberEnv, { recursive: true });
+  writeFileSync(join(workspaceEnv, "pyvenv.cfg"), "");
+  writeFileSync(join(memberEnv, "pyvenv.cfg"), "");
+  process.env["UV_PROJECT_ENVIRONMENT"] = ".custom-env";
+
+  expect(findVenv(api)).toBe(workspaceEnv);
+});
+
 describe("installer", () => {
   test("installs relative symlinks, lists them, and removes only symlinks", () => {
     const root = tempDir();
@@ -791,6 +873,161 @@ test("CLI scan defaults to top-level project dependencies", async () => {
   expect(log).toHaveBeenCalledWith(expect.stringContaining("node-skill"));
   expect(log).toHaveBeenCalledWith(expect.stringContaining("@scope/node-pkg"));
   expect(log).not.toHaveBeenCalledWith(expect.stringContaining("transitive-node-skill"));
+});
+
+test("CLI scan in uv workspace member uses workspace venv and member deps", async () => {
+  const project = writeWorkspace();
+  const api = join(project, "packages", "api");
+  const apiSrc = join(api, "src");
+  const sitePackages = join(project, ".venv", "lib", "python3.12", "site-packages");
+  mkdirSync(apiSrc, { recursive: true });
+  mkdirSync(join(api, ".venv"), { recursive: true });
+  writePackageSkill({
+    sitePackages,
+    packageDir: "api_pkg",
+    skillName: "api-skill",
+    packageName: "api-pkg",
+  });
+  writePackageSkill({
+    sitePackages,
+    packageDir: "workspace_lib",
+    skillName: "workspace-lib-skill",
+    packageName: "workspace-lib",
+  });
+  writePackageSkill({
+    sitePackages,
+    packageDir: "root_pkg",
+    skillName: "root-skill",
+    packageName: "root-pkg",
+  });
+  writePackageSkill({
+    sitePackages,
+    packageDir: "worker_pkg",
+    skillName: "worker-skill",
+    packageName: "worker-pkg",
+  });
+  writePackageSkill({
+    sitePackages,
+    packageDir: "transitive_pkg",
+    skillName: "transitive-skill",
+    packageName: "transitive-pkg",
+  });
+  process.chdir(apiSrc);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan", "--json"]);
+  const payload = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "install",
+    "--skill",
+    "api-skill",
+    "--yes",
+    "--claude",
+  ]);
+
+  expect(payload.project_root).toBe(project);
+  expect(payload.workspace_root).toBe(project);
+  expect(payload.workspace_member).toBe(api);
+  expect(payload.dependency_files).toEqual([join(api, "pyproject.toml")]);
+  expect(payload.target_environment).toBe(join(project, ".venv"));
+  expect(payload.warnings.join("\n")).toContain("Ignoring member-local .venv");
+  expect(payload.skills.map((skill: { name: string }) => skill.name)).toEqual([
+    "api-skill",
+    "workspace-lib-skill",
+  ]);
+  expect(existsSync(join(project, ".agents", "skills", "api-skill"))).toBe(true);
+  expect(existsSync(join(project, ".claude", "skills", "api-skill"))).toBe(true);
+  expect(existsSync(join(api, ".agents", "skills", "api-skill"))).toBe(false);
+});
+
+test("CLI human context prints uv workspace roots", async () => {
+  const project = writeWorkspace();
+  const api = join(project, "packages", "api");
+  const sitePackages = join(project, ".venv", "lib", "python3.12", "site-packages");
+  writePackageSkill({
+    sitePackages,
+    packageDir: "api_pkg",
+    skillName: "api-skill",
+    packageName: "api-pkg",
+  });
+  process.chdir(api);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan"]);
+
+  expect(log).toHaveBeenCalledWith(`Workspace root: ${project}`);
+  expect(log).toHaveBeenCalledWith(`Workspace member: ${api}`);
+});
+
+test("CLI scan from uv workspace root uses root and all member deps", async () => {
+  const project = writeWorkspace();
+  const sitePackages = join(project, ".venv", "lib", "python3.12", "site-packages");
+  for (const [packageDir, skillName, packageName] of [
+    ["api_pkg", "api-skill", "api-pkg"],
+    ["workspace_lib", "workspace-lib-skill", "workspace-lib"],
+    ["root_pkg", "root-skill", "root-pkg"],
+    ["worker_pkg", "worker-skill", "worker-pkg"],
+    ["transitive_pkg", "transitive-skill", "transitive-pkg"],
+  ]) {
+    writePackageSkill({ sitePackages, packageDir, skillName, packageName });
+  }
+  process.chdir(project);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan", "--json"]);
+  const payload = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "scan",
+    "--json",
+    "--all",
+  ]);
+  const allPayload = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+
+  expect(payload.workspace_member).toBe("");
+  expect(payload.dependency_files).toEqual([
+    join(project, "pyproject.toml"),
+    join(project, "packages", "api", "pyproject.toml"),
+    join(project, "packages", "worker", "pyproject.toml"),
+  ]);
+  expect(payload.skills.map((skill: { name: string }) => skill.name)).toEqual([
+    "api-skill",
+    "root-skill",
+    "worker-skill",
+    "workspace-lib-skill",
+  ]);
+  expect(allPayload.skills.map((skill: { name: string }) => skill.name)).toContain(
+    "transitive-skill",
+  );
+});
+
+test("CLI scan from uv workspace non-member subdir uses root and all member deps", async () => {
+  const project = writeWorkspace();
+  const docs = join(project, "docs");
+  const sitePackages = join(project, ".venv", "lib", "python3.12", "site-packages");
+  mkdirSync(docs, { recursive: true });
+  for (const [packageDir, skillName, packageName] of [
+    ["api_pkg", "api-skill", "api-pkg"],
+    ["root_pkg", "root-skill", "root-pkg"],
+    ["worker_pkg", "worker-skill", "worker-pkg"],
+  ]) {
+    writePackageSkill({ sitePackages, packageDir, skillName, packageName });
+  }
+  process.chdir(docs);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan", "--json"]);
+  const payload = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+
+  expect(payload.workspace_member).toBe("");
+  expect(payload.skills.map((skill: { name: string }) => skill.name)).toEqual([
+    "api-skill",
+    "root-skill",
+    "worker-skill",
+  ]);
 });
 
 test("CLI installs all discovered skills with --yes --all", async () => {
@@ -1195,6 +1432,54 @@ function writeProjectWithTopLevelAndTransitiveSkills(): string {
     skillName: "transitive-skill",
     packageName: "transitive-pkg",
   });
+  return project;
+}
+
+function writeWorkspace(): string {
+  const project = tempDir();
+  const sitePackages = join(project, ".venv", "lib", "python3.12", "site-packages");
+  const api = join(project, "packages", "api");
+  const worker = join(project, "packages", "worker");
+  mkdirSync(sitePackages, { recursive: true });
+  mkdirSync(api, { recursive: true });
+  mkdirSync(worker, { recursive: true });
+  writeFileSync(join(project, ".venv", "pyvenv.cfg"), "");
+  writeFileSync(
+    join(project, "pyproject.toml"),
+    [
+      "[project]",
+      'name = "workspace-root"',
+      'version = "0.1.0"',
+      'dependencies = ["root-pkg>=1"]',
+      "",
+      "[tool.uv.workspace]",
+      'members = ["packages/*"]',
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(api, "pyproject.toml"),
+    [
+      "[project]",
+      'name = "api"',
+      'version = "0.1.0"',
+      'dependencies = ["api-pkg>=1", "workspace-lib"]',
+      "",
+      "[tool.uv.sources]",
+      "workspace-lib = { workspace = true }",
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(worker, "pyproject.toml"),
+    [
+      "[project]",
+      'name = "worker"',
+      'version = "0.1.0"',
+      'dependencies = ["worker-pkg>=1"]',
+      "",
+    ].join("\n"),
+  );
   return project;
 }
 

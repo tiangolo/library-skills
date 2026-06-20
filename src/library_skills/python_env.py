@@ -1,9 +1,14 @@
 import os
 from pathlib import Path
 
+from .workspace import find_uv_workspace
+
 
 def find_project_root(cwd: Path) -> Path | None:
     """Find the nearest Python project/environment root walking up from cwd."""
+    workspace = find_uv_workspace(cwd)
+    if workspace is not None:
+        return workspace.root
     for directory in [cwd, *cwd.parents]:
         if (
             (directory / "pyproject.toml").is_file()
@@ -29,6 +34,7 @@ def find_venv(cwd: Path | None = None) -> Path | None:
     4. CONDA_PREFIX env var
     """
     cwd = cwd or Path.cwd()
+    workspace = find_uv_workspace(cwd)
     project_root = find_project_root(cwd) or cwd
 
     # 1. UV_PROJECT_ENVIRONMENT
@@ -41,6 +47,12 @@ def find_venv(cwd: Path | None = None) -> Path | None:
             return path
 
     # 2. Nearest project .venv directory or PEP 832 redirect file
+    if workspace is not None:
+        venv = _venv_from_dot_venv(workspace.root)
+        if venv is not None:
+            return venv
+        return None
+
     for directory in [cwd, *cwd.parents]:
         venv = _venv_from_dot_venv(directory)
         if venv is not None:
