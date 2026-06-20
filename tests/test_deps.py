@@ -1,6 +1,7 @@
 from library_skills.deps import (
     get_node_top_level_deps,
     get_python_top_level_deps,
+    get_python_top_level_deps_from_files,
     get_top_level_deps,
 )
 
@@ -60,6 +61,8 @@ cycle = [
 
 def test_get_python_top_level_deps_returns_none_without_pyproject(tmp_path):
     assert get_python_top_level_deps(tmp_path) is None
+    assert get_python_top_level_deps_from_files([]) is None
+    assert get_python_top_level_deps_from_files([tmp_path / "missing.toml"]) is None
 
 
 def test_get_python_top_level_deps_returns_none_for_invalid_toml(tmp_path):

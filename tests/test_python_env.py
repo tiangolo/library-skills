@@ -88,6 +88,30 @@ members = ["packages/*"]
     assert find_venv(member) == custom_env
 
 
+def test_find_venv_returns_none_for_workspace_without_root_environment(
+    monkeypatch,
+    tmp_path,
+):
+    workspace = tmp_path / "workspace"
+    member = workspace / "packages" / "api"
+    member.mkdir(parents=True)
+    (workspace / "pyproject.toml").write_text(
+        """
+[tool.uv.workspace]
+members = ["packages/*"]
+""",
+        encoding="utf-8",
+    )
+    (member / "pyproject.toml").write_text(
+        "[project]\nname = 'api'\nversion = '0.1.0'\n",
+        encoding="utf-8",
+    )
+    make_venv(member / ".venv")
+    clear_python_env_vars(monkeypatch)
+
+    assert find_venv(member) is None
+
+
 def test_find_venv_supports_pep_832_redirect_file(monkeypatch, tmp_path):
     project = tmp_path / "project"
     nested = project / "src" / "pkg"

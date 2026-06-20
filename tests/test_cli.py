@@ -356,6 +356,26 @@ def test_workspace_non_member_subdir_uses_root_and_all_member_deps(
     ]
 
 
+def test_workspace_scan_prints_workspace_context(tmp_path, monkeypatch):
+    project = write_workspace(tmp_path)
+    api = project / "packages" / "api"
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution_skill(
+        site_packages,
+        dist_name="api-pkg",
+        package_dir="api_pkg",
+        skill_name="api-skill",
+    )
+    monkeypatch.chdir(api)
+
+    with patch.object(cli, "console", Console(width=1000)):
+        result = runner.invoke(app, ["scan"])
+
+    assert result.exit_code == 0
+    assert f"Workspace root: {project}" in result.output
+    assert f"Workspace member: {api.resolve()}" in result.output
+
+
 def test_scan_includes_python_and_node_package_skills(tmp_path, monkeypatch):
     project = write_project(tmp_path, dependencies=["top-pkg>=1"])
     site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
