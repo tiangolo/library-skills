@@ -12,7 +12,7 @@ from rich_toolkit import RichToolkit
 from rich_toolkit.menu import Option
 from rich_toolkit.styles import MinimalStyle
 
-from .deps import get_top_level_deps
+from .deps import get_top_level_deps, get_workspace_top_level_deps
 from .installer import (
     InstallError,
     InstallTarget,
@@ -34,6 +34,7 @@ from .scanner import (
     scan_node_packages,
     scan_python_distributions,
 )
+from .workspace import UvWorkspace, find_uv_workspace, workspace_dependency_files
 
 RICH_THEME = {
     "active": "green",
@@ -66,6 +67,8 @@ class ProjectContext:
     target_environment: Path | None
     site_packages_dir: Path | None
     node_modules_dir: Path | None
+    workspace: UvWorkspace | None = None
+    dependency_files: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -87,7 +90,10 @@ def _get_rich_toolkit() -> RichToolkit:
 
 def _get_project_context(cwd: Path | None = None) -> ProjectContext:
     cwd = cwd or Path.cwd()
-    project_root = find_project_root(cwd) or cwd
+    workspace = find_uv_workspace(cwd)
+    project_root = (
+        workspace.root if workspace is not None else find_project_root(cwd) or cwd
+    )
     target_environment = find_venv(cwd)
     site_packages_dir = (
         get_site_packages_dir(target_environment) if target_environment else None
@@ -99,6 +105,10 @@ def _get_project_context(cwd: Path | None = None) -> ProjectContext:
         target_environment=target_environment,
         site_packages_dir=site_packages_dir,
         node_modules_dir=node_modules_dir,
+        workspace=workspace,
+        dependency_files=tuple(workspace_dependency_files(workspace))
+        if workspace
+        else (),
     )
 
 
@@ -108,6 +118,12 @@ def _scan_context(context: ProjectContext) -> ScanResult:
         python_result = scan_python_distributions(context.site_packages_dir)
         result.skills.extend(python_result.skills)
         result.warnings.extend(python_result.warnings)
+    if context.workspace and context.workspace.current_member is not None:
+        member_venv = context.workspace.current_member / ".venv"
+        if member_venv.exists():
+            result.warnings.append(
+                f"Ignoring member-local .venv in uv workspace: {member_venv}"
+            )
     if context.node_modules_dir is not None:
         node_result = scan_node_packages(context.node_modules_dir)
         result.skills.extend(node_result.skills)
@@ -139,6 +155,10 @@ def _display_path(path: Path | None, project_root: Path) -> str:
 
 def _print_context(context: ProjectContext) -> None:
     console.print(f"Project root: {context.project_root}")
+    if context.workspace is not None:
+        console.print(f"Workspace root: {context.workspace.root}")
+        if context.workspace.current_member is not None:
+            console.print(f"Workspace member: {context.workspace.current_member}")
     if context.target_environment:
         console.print(
             f"Target Python environment: "
@@ -190,6 +210,8 @@ def _top_level_skills(
         return skills
 
     top_level_deps = get_top_level_deps(context.project_root)
+    if context.workspace is not None:
+        top_level_deps = get_workspace_top_level_deps(list(context.dependency_files))
     if top_level_deps is None:
         return skills
 
@@ -205,6 +227,13 @@ def _scan_json_payload(
 ) -> dict[str, object]:
     return {
         "project_root": str(context.project_root),
+        "workspace_root": str(context.workspace.root) if context.workspace else "",
+        "workspace_member": (
+            str(context.workspace.current_member)
+            if context.workspace and context.workspace.current_member
+            else ""
+        ),
+        "dependency_files": [str(path) for path in context.dependency_files],
         "target_environment": str(context.target_environment or ""),
         "node_modules": str(context.node_modules_dir or ""),
         "skills": [

@@ -62,6 +62,32 @@ def test_find_venv_prefers_uv_project_environment(monkeypatch, tmp_path):
     assert find_venv(project) == uv_env
 
 
+def test_find_venv_resolves_uv_project_environment_from_workspace_root(
+    monkeypatch,
+    tmp_path,
+):
+    workspace = tmp_path / "workspace"
+    member = workspace / "packages" / "api"
+    member.mkdir(parents=True)
+    (workspace / "pyproject.toml").write_text(
+        """
+[tool.uv.workspace]
+members = ["packages/*"]
+""",
+        encoding="utf-8",
+    )
+    (member / "pyproject.toml").write_text(
+        "[project]\nname = 'api'\nversion = '0.1.0'\n",
+        encoding="utf-8",
+    )
+    custom_env = make_venv(workspace / ".custom-venv")
+    make_venv(member / ".custom-venv")
+    clear_python_env_vars(monkeypatch)
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", ".custom-venv")
+
+    assert find_venv(member) == custom_env
+
+
 def test_find_venv_supports_pep_832_redirect_file(monkeypatch, tmp_path):
     project = tmp_path / "project"
     nested = project / "src" / "pkg"
