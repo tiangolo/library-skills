@@ -1041,7 +1041,8 @@ def test_list_installed_includes_existing_claude_target_without_flag(
     (claude_dir / "demo-skill").symlink_to(skill_dir, target_is_directory=True)
     monkeypatch.chdir(project)
 
-    result = runner.invoke(app, ["list", "--installed"])
+    with patch.object(cli, "console", Console(width=1000)):
+        result = runner.invoke(app, ["list", "--installed"])
 
     assert result.exit_code == 0
     assert "claude-compatible" in result.output
