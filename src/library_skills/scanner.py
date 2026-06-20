@@ -116,6 +116,8 @@ def _iter_node_package_roots(node_modules: Path) -> list[Path]:
     for entry in sorted(node_modules.iterdir()):
         if not entry.is_dir():
             continue
+        if entry.name.startswith("."):
+            continue
         if entry.name.startswith("@"):
             package_roots.extend(
                 child for child in sorted(entry.iterdir()) if child.is_dir()

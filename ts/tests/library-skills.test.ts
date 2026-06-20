@@ -151,6 +151,8 @@ test("reports invalid Node package and skill metadata", () => {
   );
   mkdirSync(join(nodeModules, "array-pkg"), { recursive: true });
   writeFileSync(join(nodeModules, "array-pkg", "package.json"), "[]");
+  mkdirSync(join(nodeModules, ".bin"), { recursive: true });
+  mkdirSync(join(nodeModules, ".vite-temp"), { recursive: true });
   mkdirSync(join(nodeModules, "nameless-pkg"), { recursive: true });
   writeFileSync(join(nodeModules, "nameless-pkg", "package.json"), "{}");
   mkdirSync(join(nodeModules, "empty-pkg"), { recursive: true });
@@ -181,6 +183,12 @@ test("reports invalid Node package and skill metadata", () => {
   );
   expect(scannerTesting.iterNodePackageRoots(nodeModules)).not.toContain(
     join(nodeModules, "README.md"),
+  );
+  expect(scannerTesting.iterNodePackageRoots(nodeModules)).not.toContain(
+    join(nodeModules, ".bin"),
+  );
+  expect(scannerTesting.iterNodePackageRoots(nodeModules)).not.toContain(
+    join(nodeModules, ".vite-temp"),
   );
   expect(scannerTesting.findNodeSkillMarkdownFiles(join(nodeModules, "missing"))).toEqual(
     [],
