@@ -101,6 +101,22 @@ interface ScanOptions {
 	json?: boolean;
 }
 
+const ACTION_COLORS = {
+	install: "\u001b[1;32m",
+	repair: "\u001b[1;34m",
+	remove: "\u001b[1;31m",
+	reset: "\u001b[0m",
+} as const;
+
+function printActionHeader(action: "install" | "repair" | "remove"): void {
+	const labels = {
+		install: "Install new skills",
+		repair: "Repair installed skills",
+		remove: "Remove stale skills",
+	};
+	console.log(`${ACTION_COLORS[action]}${labels[action]}${ACTION_COLORS.reset}`);
+}
+
 function getProjectContext(cwd = process.cwd()): ProjectContext {
 	const workspace = findUvWorkspace(cwd);
 	const nodeWorkspace = findNodeWorkspace(cwd);
@@ -475,6 +491,7 @@ function printInstalledSkillsTable(
 }
 
 async function selectSkillsInteractive(skills: Skill[]): Promise<Skill[]> {
+	printActionHeader("install");
 	return checkbox<Skill>({
 		message: "Select skills to install (press Space to select, Enter to confirm):",
 		choices: skills.map((skill) => ({
@@ -583,11 +600,12 @@ function removableStatuses(statuses: InstalledStatus[]): InstalledStatus[] {
 
 async function selectStatusesInteractive(
 	statuses: InstalledStatus[],
-	action: string,
+	action: "repair" | "remove",
 ): Promise<InstalledStatus[]> {
 	if (statuses.length === 0) {
 		return [];
 	}
+	printActionHeader(action);
 	return checkbox<InstalledStatus>({
 		message: `Select skills to ${action} (press Space to select, Enter to confirm):`,
 		choices: statuses.map((status) => ({

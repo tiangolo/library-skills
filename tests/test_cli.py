@@ -1436,7 +1436,7 @@ def test_filter_installable_skills_skips_collisions(tmp_path):
     assert selected == []
 
 
-def test_select_helpers_use_rich_toolkit(monkeypatch, tmp_path):
+def test_select_helpers_use_rich_toolkit(monkeypatch, tmp_path, capsys):
     skill = make_cli_skill(tmp_path)
     target = cli.InstallTarget("universal", tmp_path / ".agents" / "skills")
     status = cli.InstalledStatus(
@@ -1451,6 +1451,7 @@ def test_select_helpers_use_rich_toolkit(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkit([skill]))
 
     assert cli._select_skills_interactive([skill]) == [skill]
+    assert "Install new skills" in capsys.readouterr().out
 
     monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkit([status]))
 
@@ -1507,6 +1508,7 @@ def test_reconcile_helpers_cover_selection_skip_and_not_found(
     monkeypatch.setattr(cli, "Menu", FakeMenu)
 
     assert cli._select_statuses_interactive([status], action="repair") == [status]
+    assert "Repair installed skills" in capsys.readouterr().out
     assert cli._select_statuses_interactive([], action="repair") == []
 
     skipped = cli.InstalledStatus(

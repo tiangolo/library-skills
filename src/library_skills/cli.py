@@ -52,6 +52,9 @@ from .workspace import (
 
 RICH_THEME = {
     "active": "green",
+    "action.install": "bold green",
+    "action.remove": "bold red",
+    "action.repair": "bold blue",
     "cancelled": "red italic",
     "error": "red",
     "placeholder": "grey62",
@@ -311,8 +314,19 @@ def _workspace_root(context: ProjectContext) -> Path | str:
     return ""
 
 
+def _print_action_header(action: str) -> None:
+    labels = {
+        "install": ("action.install", "Install new skills"),
+        "repair": ("action.repair", "Repair installed skills"),
+        "remove": ("action.remove", "Remove stale skills"),
+    }
+    style, label = labels[action]
+    console.print(f"[{style}]{label}[/]")
+
+
 def _select_skills_interactive(skills: list[Skill]) -> list[Skill]:
     """Let the user interactively select which skills to install."""
+    _print_action_header("install")
     return _get_rich_toolkit().ask(
         "Select skills to install (press Space to select, Enter to confirm):",
         options=[
@@ -563,6 +577,7 @@ def _select_statuses_interactive(
 ) -> list[InstalledStatus]:
     if not statuses:
         return []
+    _print_action_header(action)
     toolkit = _get_rich_toolkit()
     menu = Menu(
         f"Select skills to {action} (press Space to select, Enter to confirm):",
