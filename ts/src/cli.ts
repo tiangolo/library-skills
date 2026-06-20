@@ -48,6 +48,8 @@ interface ProjectContext {
 	nodeModulesDir: string | null;
 	workspace: UvWorkspace | null;
 	nodeWorkspace: NodeWorkspace | null;
+	workspaceDependencyFiles: string[];
+	nodeWorkspaceDependencyFiles: string[];
 	dependencyFiles: string[];
 }
 
@@ -98,8 +100,12 @@ interface ScanOptions {
 
 function getProjectContext(cwd = process.cwd()): ProjectContext {
 	const workspace = findUvWorkspace(cwd);
-	const nodeWorkspace = workspace === null ? findNodeWorkspace(cwd) : null;
+	const nodeWorkspace = findNodeWorkspace(cwd);
 	const projectRoot = workspace?.root ?? nodeWorkspace?.root ?? findProjectRoot(cwd) ?? cwd;
+	const workspaceFiles =
+		workspace === null ? [] : workspaceDependencyFiles(workspace);
+	const nodeWorkspaceFiles =
+		nodeWorkspace === null ? [] : nodeWorkspaceDependencyFiles(nodeWorkspace);
 	const targetEnvironment = findVenv(cwd);
 	const sitePackagesDir =
 		targetEnvironment === null ? null : getSitePackagesDir(targetEnvironment);
@@ -112,11 +118,9 @@ function getProjectContext(cwd = process.cwd()): ProjectContext {
 		nodeModulesDir,
 		workspace,
 		nodeWorkspace,
-		dependencyFiles: workspace
-			? workspaceDependencyFiles(workspace)
-			: nodeWorkspace
-				? nodeWorkspaceDependencyFiles(nodeWorkspace)
-				: [],
+		workspaceDependencyFiles: workspaceFiles,
+		nodeWorkspaceDependencyFiles: nodeWorkspaceFiles,
+		dependencyFiles: [...workspaceFiles, ...nodeWorkspaceFiles],
 	};
 }
 
@@ -167,12 +171,7 @@ function topLevelSkills({
 		return skills;
 	}
 	const topLevelDeps = getTopLevelDeps(context.projectRoot);
-	const workspaceTopLevelDeps =
-		context.workspace !== null
-			? getWorkspaceTopLevelDeps(context.dependencyFiles)
-			: context.nodeWorkspace !== null
-				? getNodeWorkspaceTopLevelDeps(context.dependencyFiles)
-				: null;
+	const workspaceTopLevelDeps = getWorkspaceTopLevelDepsForContext(context);
 	const selectedTopLevelDeps =
 		context.workspace === null && context.nodeWorkspace === null
 			? topLevelDeps
@@ -183,6 +182,23 @@ function topLevelSkills({
 	return skills.filter((skill) =>
 		selectedTopLevelDeps.has(normalizePackageName(skill.packageName)),
 	);
+}
+
+function getWorkspaceTopLevelDepsForContext(
+	context: ProjectContext,
+): Set<string> | null {
+	const dependencySets = [
+		context.workspace === null
+			? null
+			: getWorkspaceTopLevelDeps(context.workspaceDependencyFiles),
+		context.nodeWorkspace === null
+			? null
+			: getNodeWorkspaceTopLevelDeps(context.nodeWorkspaceDependencyFiles),
+	].filter((deps): deps is Set<string> => deps !== null);
+	if (dependencySets.length === 0) {
+		return null;
+	}
+	return new Set(dependencySets.flatMap((deps) => [...deps]));
 }
 
 function printWarnings(warnings: string[]): void {
