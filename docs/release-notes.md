@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Features
+
+* ✨ Detect and ask about using Claude Code actively, not only with `--claude`. PR [#127](https://github.com/tiangolo/library-skills/pull/127) by [@tiangolo](https://github.com/tiangolo).
+
 ## 0.0.11 (2026-06-20)
 
 ### Features
