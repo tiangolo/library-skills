@@ -13,6 +13,7 @@ def test_get_python_top_level_deps_normalizes_required_and_optional_deps(tmp_pat
 [project]
 dependencies = [
     "Rich-Toolkit>=0.19",
+    "FastAPI~=0.115",
     "pydantic[email]>=2 ; python_version >= '3.10'",
 ]
 
@@ -26,6 +27,7 @@ dev = [
 
     assert get_python_top_level_deps(tmp_path) == {
         "rich-toolkit",
+        "fastapi",
         "pydantic",
         "pytest-cov",
     }
