@@ -213,6 +213,30 @@ def test_scan_python_distributions_uses_editable_direct_url_fallback(tmp_path):
     assert result.skills[0].path == skill_md.resolve()
 
 
+def test_scan_python_distributions_does_not_claim_nested_site_packages_skills(
+    tmp_path,
+):
+    source_root = tmp_path / "source"
+    site_packages = source_root / ".venv" / "lib" / "python3.12" / "site-packages"
+    dependency_skill = write_skill(site_packages / "fastapi", "fastapi")
+    editable_dist_info = write_dist_info(site_packages, "aaa-editable-pkg")
+    editable_dist_info.joinpath("direct_url.json").write_text(
+        json.dumps({"url": source_root.as_uri(), "dir_info": {"editable": True}}),
+        encoding="utf-8",
+    )
+    write_dist_info(
+        site_packages,
+        "fastapi",
+        record_paths=[dependency_skill.relative_to(site_packages).as_posix()],
+    )
+
+    result = scan_python_distributions(site_packages)
+
+    assert result.warnings == []
+    assert [skill.name for skill in result.skills] == ["fastapi"]
+    assert result.skills[0].package_name == "fastapi"
+
+
 def test_scan_python_distributions_warns_when_site_packages_is_missing(tmp_path):
     result = scan_python_distributions(tmp_path / "missing")
 

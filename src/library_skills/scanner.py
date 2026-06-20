@@ -65,6 +65,7 @@ def scan_python_distributions(site_packages: Path) -> ScanResult:
         if not found.skills:
             fallback = _scan_editable_direct_url(
                 dist_info=dist_info,
+                site_packages=site_packages,
                 package_name=dist.name,
                 package_version=dist.version,
                 seen_skill_dirs=seen_skill_dirs,
@@ -223,6 +224,7 @@ def _is_skill_file_record(installed_path: str) -> bool:
 def _scan_editable_direct_url(
     *,
     dist_info: Path,
+    site_packages: Path | None = None,
     package_name: str,
     package_version: str,
     seen_skill_dirs: set[Path],
@@ -236,6 +238,10 @@ def _scan_editable_direct_url(
     for skill_md in sorted(source_root.rglob(".agents/skills/*/SKILL.md")):
         resolved_skill_md = skill_md.resolve()
         if not _is_relative_to(resolved_skill_md, source_root):
+            continue
+        if site_packages is not None and _is_relative_to(
+            resolved_skill_md, site_packages
+        ):
             continue
 
         skill_dir = resolved_skill_md.parent
