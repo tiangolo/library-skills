@@ -30,6 +30,34 @@ dev = [
     }
 
 
+def test_get_python_top_level_deps_includes_dependency_groups(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        """
+[dependency-groups]
+dev = [
+    { include-group = "tests" },
+    { include-group = 1 },
+    "Prek>=0.2",
+]
+tests = [
+    "PyTest_Cov>=4",
+]
+docs = "mkdocs"
+cycle = [
+    { include-group = "cycle" },
+    "Ruff>=0.15",
+]
+""",
+        encoding="utf-8",
+    )
+
+    assert get_python_top_level_deps(tmp_path) == {
+        "prek",
+        "pytest-cov",
+        "ruff",
+    }
+
+
 def test_get_python_top_level_deps_returns_none_without_pyproject(tmp_path):
     assert get_python_top_level_deps(tmp_path) is None
 
