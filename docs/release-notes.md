@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.11 (2026-06-20)
+
 ### Features
 
 * ✨ Add support for npm workspaces. PR [#124](https://github.com/tiangolo/library-skills/pull/124) by [@tiangolo](https://github.com/tiangolo).
