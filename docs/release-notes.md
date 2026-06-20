@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Features
+
+* ✨ Add support for uv workspaces. PR [#117](https://github.com/tiangolo/library-skills/pull/117) by [@tiangolo](https://github.com/tiangolo).
+
 ## 0.0.7 (2026-06-20)
 
 ### Features
