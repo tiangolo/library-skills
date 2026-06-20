@@ -191,6 +191,21 @@ def test_list_installed_skills_handles_missing_target_and_directories(tmp_path):
     assert installed[0].has_skill_md is False
 
 
+def test_list_installed_skills_reports_dangling_symlink(tmp_path):
+    target_dir = tmp_path / ".agents" / "skills"
+    target_dir.mkdir(parents=True)
+    dangling = target_dir / "dangling-skill"
+    dangling.symlink_to(tmp_path / "missing-target", target_is_directory=True)
+
+    installed = list_installed_skills(target_dir)
+
+    assert len(installed) == 1
+    assert installed[0].name == "dangling-skill"
+    assert installed[0].type == "symlink"
+    assert installed[0].target == (tmp_path / "missing-target").resolve()
+    assert installed[0].has_skill_md is False
+
+
 def test_uninstall_skill_only_removes_symlinks(tmp_path):
     skill = make_skill(tmp_path)
     target_dir = tmp_path / ".agents" / "skills"
@@ -202,3 +217,13 @@ def test_uninstall_skill_only_removes_symlinks(tmp_path):
     assert not installed_path.exists()
     assert uninstall_skill("hand-authored", target_dir) is False
     assert hand_authored.is_dir()
+
+
+def test_uninstall_skill_removes_dangling_symlink(tmp_path):
+    target_dir = tmp_path / ".agents" / "skills"
+    target_dir.mkdir(parents=True)
+    dangling = target_dir / "dangling-skill"
+    dangling.symlink_to(tmp_path / "missing-target", target_is_directory=True)
+
+    assert uninstall_skill("dangling-skill", target_dir) is True
+    assert not dangling.is_symlink()

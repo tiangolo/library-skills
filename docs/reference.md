@@ -4,7 +4,7 @@
 
 ---
 
-Discover and install agent skills from installed library packages.
+Discover and reconcile agent skills from installed library packages.
 
 **Usage**:
 
@@ -15,7 +15,7 @@ $ library-skills [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--claude`: Also install/manage skills in .claude/skills/ alongside .agents/skills/
-* `-y, --yes`: Skip confirmation prompts
+* `-y, --yes`: Skip confirmation prompts and reconcile managed symlink drift
 * `--check`: Validate only; exit 1 if installs drift
 * `--all`: Install all newly discovered unmanaged skills
 * `-s, --skill TEXT`: Install a specific discovered skill by name
