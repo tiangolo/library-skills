@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Features
+
+* ✨ Add support for npm workspaces. PR [#124](https://github.com/tiangolo/library-skills/pull/124) by [@tiangolo](https://github.com/tiangolo).
+
 ### Internal
 
 * 🔧 Configure CI labeler, do not mark as docs internal changes. PR [#125](https://github.com/tiangolo/library-skills/pull/125) by [@tiangolo](https://github.com/tiangolo).
