@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.theme import Theme
 from rich_toolkit import RichToolkit
-from rich_toolkit.menu import Option
+from rich_toolkit.menu import Menu, Option
 from rich_toolkit.styles import MinimalStyle
 
 from .deps import (
@@ -20,6 +20,9 @@ from .deps import (
 from .installer import (
     InstallError,
     InstallTarget,
+    get_all_target_dirs,
+    get_default_install_target_dirs,
+    get_existing_target_dirs,
     get_target_dirs,
     install_skill,
     list_installed_skills,
@@ -321,9 +324,63 @@ def _select_skills_interactive(skills: list[Skill]) -> list[Skill]:
     )
 
 
+def _select_targets_interactive(
+    *, project_root: Path, default_targets: list[InstallTarget]
+) -> list[InstallTarget]:
+    """Let the user interactively select which targets to install into."""
+    targets = get_all_target_dirs(project_root)
+    default_names = {target.name for target in default_targets}
+    toolkit = _get_rich_toolkit()
+    menu = Menu(
+        "Select installation targets (press Space to select, Enter to confirm):",
+        options=[
+            Option(
+                {
+                    "name": _display_path(target.path, project_root),
+                    "value": target,
+                }
+            )
+            for target in targets
+        ],
+        style=toolkit.style,
+        console=toolkit.console,
+        multiple=True,
+    )
+    menu.checked = {
+        index for index, target in enumerate(targets) if target.name in default_names
+    }
+    return menu.ask()
+
+
+def _select_install_targets(
+    *,
+    project_root: Path,
+    include_claude: bool,
+    interactive: bool,
+) -> list[InstallTarget]:
+    if not interactive:
+        return get_target_dirs(project_root, include_claude=include_claude)
+    return _select_targets_interactive(
+        project_root=project_root,
+        default_targets=get_default_install_target_dirs(project_root),
+    )
+
+
 def _find_collisions(skills: list[Skill]) -> set[str]:
     counts = Counter(skill.name for skill in skills)
     return {name for name, count in counts.items() if count > 1}
+
+
+def _deduplicate_skills(skills: list[Skill]) -> list[Skill]:
+    seen: set[Path] = set()
+    unique: list[Skill] = []
+    for skill in skills:
+        key = skill.skill_dir.resolve()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(skill)
+    return unique
 
 
 def _filter_installable_skills(
@@ -497,7 +554,11 @@ def _sync(
 ) -> None:
     context = _get_project_context()
     result = _scan_context(context)
-    targets = get_target_dirs(context.project_root, include_claude=include_claude)
+    targets = (
+        get_target_dirs(context.project_root, include_claude=include_claude)
+        if yes or check or include_claude
+        else get_default_install_target_dirs(context.project_root)
+    )
 
     _print_context(context)
     console.print()
@@ -560,9 +621,17 @@ def _sync(
             if status.status == "new" and status.skill is not None
         ]
         if new_skills:
-            selected = _select_skills_interactive(new_skills)
+            selected = _select_skills_interactive(_deduplicate_skills(new_skills))
 
     if selected:
+        targets = _select_install_targets(
+            project_root=context.project_root,
+            include_claude=include_claude,
+            interactive=not yes and not include_claude,
+        )
+        if not targets:
+            console.print("No installation targets selected.")
+            return
         console.print()
         installed_count = _install_selected(
             skills=selected, targets=targets, project_root=context.project_root
@@ -664,7 +733,9 @@ def list_cmd(
         skills=result.skills,
         include_all=include_all,
     )
-    targets = get_target_dirs(context.project_root, include_claude=include_claude)
+    targets = get_existing_target_dirs(
+        context.project_root, include_claude=include_claude
+    )
     statuses = _installed_statuses(targets=targets, skills=result.skills)
 
     if json_output:
@@ -728,7 +799,6 @@ def install(
         skills=result.skills,
         include_all=include_all or bool(selected_names),
     )
-    targets = get_target_dirs(context.project_root, include_claude=include_claude)
 
     _print_warnings(result.warnings)
     selected = _filter_installable_skills(
@@ -741,6 +811,15 @@ def install(
 
     if not selected:
         console.print("No skills selected.")
+        return
+
+    targets = _select_install_targets(
+        project_root=context.project_root,
+        include_claude=include_claude,
+        interactive=not yes and not include_claude,
+    )
+    if not targets:
+        console.print("No installation targets selected.")
         return
 
     installed_count = _install_selected(
@@ -769,7 +848,9 @@ def remove(
     """Remove installed symlinked skills."""
     context = _get_project_context()
     result = _scan_context(context)
-    targets = get_target_dirs(context.project_root, include_claude=include_claude)
+    targets = get_existing_target_dirs(
+        context.project_root, include_claude=include_claude
+    )
     statuses = _installed_statuses(targets=targets, skills=result.skills)
 
     selected_statuses: list[InstalledStatus] = []

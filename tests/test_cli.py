@@ -854,7 +854,8 @@ def test_list_installed_prints_installed_statuses(tmp_path, monkeypatch):
     (installed_dir / "demo-skill").symlink_to(skill_dir, target_is_directory=True)
     monkeypatch.chdir(project)
 
-    result = runner.invoke(app, ["list", "--installed"])
+    with patch.object(cli, "console", Console(width=1000)):
+        result = runner.invoke(app, ["list", "--installed"])
 
     assert result.exit_code == 0
     assert "up to date" in result.output
@@ -882,6 +883,111 @@ def test_install_all_copy_mode_installs_to_agents_and_claude(tmp_path, monkeypat
     assert not agents_skill.is_symlink()
     assert claude_skill.is_dir()
     assert not claude_skill.is_symlink()
+
+
+def test_install_interactive_can_choose_claude_only(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    skill_dir = write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    monkeypatch.chdir(project)
+
+    with (
+        patch.object(cli, "_select_skills_interactive", lambda skills: skills),
+        patch.object(
+            cli,
+            "_select_targets_interactive",
+            lambda project_root, default_targets: [
+                cli.InstallTarget(
+                    "claude-compatible", project_root / ".claude" / "skills"
+                )
+            ],
+        ),
+    ):
+        result = runner.invoke(app, ["install"])
+
+    agents_skill = project / ".agents" / "skills" / "demo-skill"
+    claude_skill = project / ".claude" / "skills" / "demo-skill"
+    assert result.exit_code == 0
+    assert not agents_skill.exists()
+    assert claude_skill.is_symlink()
+    assert claude_skill.resolve() == skill_dir.resolve()
+
+
+def test_install_interactive_can_choose_both_targets(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    skill_dir = write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    monkeypatch.chdir(project)
+
+    with (
+        patch.object(cli, "_select_skills_interactive", lambda skills: skills),
+        patch.object(
+            cli,
+            "_select_targets_interactive",
+            lambda project_root, default_targets: cli.get_all_target_dirs(project_root),
+        ),
+    ):
+        result = runner.invoke(app, ["install"])
+
+    agents_skill = project / ".agents" / "skills" / "demo-skill"
+    claude_skill = project / ".claude" / "skills" / "demo-skill"
+    assert result.exit_code == 0
+    assert agents_skill.is_symlink()
+    assert agents_skill.resolve() == skill_dir.resolve()
+    assert claude_skill.is_symlink()
+    assert claude_skill.resolve() == skill_dir.resolve()
+
+
+def test_install_with_no_selected_targets_cancels(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    monkeypatch.chdir(project)
+
+    with patch.object(
+        cli, "_select_targets_interactive", lambda project_root, default_targets: []
+    ):
+        result = runner.invoke(app, ["install", "--all"])
+
+    assert result.exit_code == 0
+    assert "No installation targets selected." in result.output
+    assert not (project / ".agents" / "skills" / "demo-skill").exists()
+
+
+def test_default_sync_with_no_selected_targets_cancels(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    monkeypatch.chdir(project)
+
+    with patch.object(
+        cli, "_select_targets_interactive", lambda project_root, default_targets: []
+    ):
+        result = runner.invoke(app, ["--all"])
+
+    assert result.exit_code == 0
+    assert "No installation targets selected." in result.output
+    assert not (project / ".agents" / "skills" / "demo-skill").exists()
 
 
 def test_install_without_selection_and_yes_prints_no_skills_selected(
@@ -917,6 +1023,70 @@ def test_remove_named_symlink(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "Removed:" in result.output
     assert not installed.exists()
+
+
+def test_list_installed_includes_existing_claude_target_without_flag(
+    tmp_path, monkeypatch
+):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    skill_dir = write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    claude_dir = project / ".claude" / "skills"
+    claude_dir.mkdir(parents=True)
+    (claude_dir / "demo-skill").symlink_to(skill_dir, target_is_directory=True)
+    monkeypatch.chdir(project)
+
+    with patch.object(cli, "console", Console(width=1000)):
+        result = runner.invoke(app, ["list", "--installed"])
+
+    assert result.exit_code == 0
+    assert "claude-compatible" in result.output
+    assert ".claude" in result.output
+    assert "up to date" in result.output
+
+
+def test_remove_includes_existing_claude_target_without_flag(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    skill_dir = write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    claude_dir = project / ".claude" / "skills"
+    claude_dir.mkdir(parents=True)
+    installed = claude_dir / "demo-skill"
+    installed.symlink_to(skill_dir, target_is_directory=True)
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["remove", "demo-skill"])
+
+    assert result.exit_code == 0
+    assert "Removed:" in result.output
+    assert "claude-compatible" in result.output
+    assert not installed.exists()
+
+
+def test_list_installed_and_remove_do_not_create_missing_target_dirs(
+    tmp_path, monkeypatch
+):
+    project = write_project(tmp_path, dependencies=[])
+    (project / ".claude").mkdir()
+    monkeypatch.chdir(project)
+
+    list_result = runner.invoke(app, ["list", "--installed"])
+    remove_result = runner.invoke(app, ["remove", "--yes"])
+
+    assert list_result.exit_code == 0
+    assert remove_result.exit_code == 0
+    assert not (project / ".agents" / "skills").exists()
+    assert not (project / ".claude" / "skills").exists()
 
 
 def test_remove_with_yes_and_no_names_does_not_prompt(tmp_path, monkeypatch):
@@ -1015,7 +1185,14 @@ def test_install_interactive_selection_installs_selected_skill(
     )
     monkeypatch.chdir(project)
 
-    with patch.object(cli, "_select_skills_interactive", lambda skills: skills):
+    with (
+        patch.object(cli, "_select_skills_interactive", lambda skills: skills),
+        patch.object(
+            cli,
+            "_select_targets_interactive",
+            lambda project_root, default_targets: default_targets,
+        ),
+    ):
         result = runner.invoke(app, ["install"])
 
     installed = project / ".agents" / "skills" / "demo-skill"
@@ -1038,7 +1215,14 @@ def test_default_command_interactive_selection_installs_selected_skill(
     )
     monkeypatch.chdir(project)
 
-    with patch.object(cli, "_select_skills_interactive", lambda skills: skills):
+    with (
+        patch.object(cli, "_select_skills_interactive", lambda skills: skills),
+        patch.object(
+            cli,
+            "_select_targets_interactive",
+            lambda project_root, default_targets: default_targets,
+        ),
+    ):
         result = runner.invoke(app)
 
     installed = project / ".agents" / "skills" / "demo-skill"
@@ -1046,6 +1230,43 @@ def test_default_command_interactive_selection_installs_selected_skill(
     assert "Installed 1 skill target(s)." in result.output
     assert installed.is_symlink()
     assert installed.resolve() == skill_dir.resolve()
+
+
+def test_default_command_deduplicates_new_skills_across_targets(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    (project / ".agents").mkdir()
+    (project / ".claude").mkdir()
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    skill_dir = write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    prompt_counts: list[int] = []
+    monkeypatch.chdir(project)
+
+    def select_skills(skills: list[cli.Skill]) -> list[cli.Skill]:
+        prompt_counts.append(len(skills))
+        return skills
+
+    with (
+        patch.object(cli, "_select_skills_interactive", select_skills),
+        patch.object(
+            cli,
+            "_select_targets_interactive",
+            lambda project_root, default_targets: default_targets,
+        ),
+    ):
+        result = runner.invoke(app)
+
+    assert result.exit_code == 0
+    assert prompt_counts == [1]
+    assert (project / ".agents" / "skills" / "demo-skill").resolve() == skill_dir
+    assert (project / ".claude" / "skills" / "demo-skill").resolve() == skill_dir
 
 
 def test_remove_interactive_selection_removes_selected_skill(tmp_path, monkeypatch):
@@ -1165,6 +1386,29 @@ def test_select_helpers_use_rich_toolkit(monkeypatch, tmp_path):
         )
         == []
     )
+
+
+def test_select_targets_interactive_preselects_defaults(monkeypatch, tmp_path):
+    default_target = cli.InstallTarget(
+        "claude-compatible", tmp_path / ".claude" / "skills"
+    )
+
+    class FakeMenu:
+        def __init__(self, _label, *, options, **_kwargs):
+            self.options = options
+            self.checked = set()
+
+        def ask(self):
+            assert self.checked == {1}
+            return [self.options[index]["value"] for index in sorted(self.checked)]
+
+    monkeypatch.setattr(cli, "Menu", FakeMenu)
+
+    selected = cli._select_targets_interactive(
+        project_root=tmp_path, default_targets=[default_target]
+    )
+
+    assert [target.name for target in selected] == ["claude-compatible"]
 
 
 def test_get_rich_toolkit_returns_toolkit_instance():

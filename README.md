@@ -49,11 +49,13 @@ $ npx library-skills
 
 This will scan the dependencies for the current project, find the installed libraries, and ask you which of their skills you want to install in the project.
 
-Then it will add them to the `.agents` directory as symbolic links, so when you update the libraries, the skills are updated too.
+Then it will ask where to install them and add them as symbolic links, so when you update the libraries, the skills are updated too.
+
+By default it selects `.agents/skills`, the agent-neutral target. If the project already has a `.claude/` directory, it selects `.claude/skills` too.
 
 /// tip
 
-If you are using Claude Code, add the `--claude` CLI Option to install the skills in the `.claude/skills` directory too, as Claude Code doesn't support the standard `.agents` directory.
+If you are using Claude Code, select `.claude/skills` when asked for installation targets, as Claude Code doesn't support the standard `.agents` directory. For non-interactive installs, add the `--claude` CLI option to install the skills in `.claude/skills` too.
 
 ///
 

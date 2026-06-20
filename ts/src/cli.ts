@@ -11,6 +11,9 @@ import {
 	getWorkspaceTopLevelDeps,
 } from "./deps.js";
 import {
+	getAllTargetDirs,
+	getDefaultInstallTargetDirs,
+	getExistingTargetDirs,
 	getTargetDirs,
 	installSkill,
 	InstallError,
@@ -333,6 +336,20 @@ function findCollisions(skills: Skill[]): Set<string> {
 	);
 }
 
+function deduplicateSkills(skills: Skill[]): Skill[] {
+	const seen = new Set<string>();
+	const unique: Skill[] = [];
+	for (const skill of skills) {
+		const key = resolve(skill.skillDir);
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		unique.push(skill);
+	}
+	return unique;
+}
+
 function filterInstallableSkills({
 	skills,
 	selectedNames,
@@ -467,6 +484,45 @@ async function selectSkillsInteractive(skills: Skill[]): Promise<Skill[]> {
 	});
 }
 
+async function selectTargetsInteractive({
+	projectRoot,
+	defaultTargets,
+}: {
+	projectRoot: string;
+	defaultTargets: InstallTarget[];
+}): Promise<InstallTarget[]> {
+	const defaultNames = new Set(defaultTargets.map((target) => target.name));
+	return checkbox<InstallTarget>({
+		message:
+			"Select installation targets (press Space to select, Enter to confirm):",
+		choices: getAllTargetDirs(projectRoot).map((target) => ({
+			name: displayPath(target.path, projectRoot),
+			value: target,
+			checked: defaultNames.has(target.name),
+		})),
+		validate: (selected) =>
+			selected.length > 0 || "Please select at least one installation target.",
+	});
+}
+
+async function selectInstallTargets({
+	projectRoot,
+	includeClaude,
+	interactive,
+}: {
+	projectRoot: string;
+	includeClaude?: boolean;
+	interactive: boolean;
+}): Promise<InstallTarget[]> {
+	if (!interactive) {
+		return getTargetDirs(projectRoot, { includeClaude });
+	}
+	return selectTargetsInteractive({
+		projectRoot,
+		defaultTargets: getDefaultInstallTargetDirs(projectRoot),
+	});
+}
+
 async function selectInstalledSkillsInteractive(
 	statuses: InstalledStatus[],
 ): Promise<InstalledStatus[]> {
@@ -522,9 +578,12 @@ function installSelected({
 async function sync(options: GlobalOptions): Promise<void> {
 	const context = getProjectContext();
 	const result = scanContext(context);
-	const targets = getTargetDirs(context.projectRoot, {
-		includeClaude: options.claude,
-	});
+	let targets =
+		options.yes || options.check || options.claude
+			? getTargetDirs(context.projectRoot, {
+					includeClaude: options.claude,
+				})
+			: getDefaultInstallTargetDirs(context.projectRoot);
 
 	printContext(context);
 	console.log();
@@ -592,11 +651,20 @@ async function sync(options: GlobalOptions): Promise<void> {
 			.filter((status) => status.status === "new" && status.skill !== null)
 			.map((status) => status.skill as Skill);
 		if (newSkills.length > 0) {
-			selected = await selectSkillsInteractive(newSkills);
+			selected = await selectSkillsInteractive(deduplicateSkills(newSkills));
 		}
 	}
 
 	if (selected.length > 0) {
+		targets = await selectInstallTargets({
+			projectRoot: context.projectRoot,
+			includeClaude: options.claude,
+			interactive: !options.yes && !options.claude,
+		});
+		if (targets.length === 0) {
+			console.log("No installation targets selected.");
+			return;
+		}
 		console.log();
 		const installedCount = installSelected({
 			skills: selected,
@@ -640,7 +708,7 @@ function listCommand(options: ListOptions): void {
 		skills: result.skills,
 		includeAll: Boolean(options.all),
 	});
-	const targets = getTargetDirs(context.projectRoot, {
+	const targets = getExistingTargetDirs(context.projectRoot, {
 		includeClaude: options.claude,
 	});
 	const statuses = installedStatuses({ targets, skills: result.skills });
@@ -685,9 +753,6 @@ async function installCommand(options: InstallOptions): Promise<void> {
 		skills: result.skills,
 		includeAll: Boolean(options.all) || selectedNames.length > 0,
 	});
-	const targets = getTargetDirs(context.projectRoot, {
-		includeClaude: options.claude,
-	});
 
 	printWarnings(result.warnings);
 	let selected = filterInstallableSkills({
@@ -701,6 +766,16 @@ async function installCommand(options: InstallOptions): Promise<void> {
 
 	if (selected.length === 0) {
 		console.log("No skills selected.");
+		return;
+	}
+
+	const targets = await selectInstallTargets({
+		projectRoot: context.projectRoot,
+		includeClaude: options.claude,
+		interactive: !options.yes && !options.claude,
+	});
+	if (targets.length === 0) {
+		console.log("No installation targets selected.");
 		return;
 	}
 
@@ -720,7 +795,7 @@ async function removeCommand(
 ): Promise<void> {
 	const context = getProjectContext();
 	const result = scanContext(context);
-	const targets = getTargetDirs(context.projectRoot, {
+	const targets = getExistingTargetDirs(context.projectRoot, {
 		includeClaude: options.claude,
 	});
 	const statuses = installedStatuses({ targets, skills: result.skills });

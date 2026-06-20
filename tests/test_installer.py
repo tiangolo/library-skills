@@ -7,6 +7,8 @@ from library_skills.installer import (
     UNIVERSAL_SKILLS_DIR,
     InstallError,
     _get_symlink_target,
+    get_default_install_target_dirs,
+    get_existing_target_dirs,
     get_target_dirs,
     install_skill,
     list_installed_skills,
@@ -44,6 +46,51 @@ def test_get_target_dirs_always_includes_agents_and_optionally_claude(tmp_path):
     assert [target.name for target in targets] == ["universal", "claude-compatible"]
     assert targets[0].path == tmp_path / UNIVERSAL_SKILLS_DIR
     assert targets[1].path == tmp_path / CLAUDE_SKILLS_DIR
+
+
+def test_default_install_target_dirs_follow_project_state(tmp_path):
+    assert [target.name for target in get_default_install_target_dirs(tmp_path)] == [
+        "universal"
+    ]
+
+    agents_project = tmp_path / "agents-project"
+    (agents_project / ".agents").mkdir(parents=True)
+    assert [
+        target.name for target in get_default_install_target_dirs(agents_project)
+    ] == ["universal"]
+
+    claude_project = tmp_path / "claude-project"
+    (claude_project / ".claude").mkdir(parents=True)
+    assert [
+        target.name for target in get_default_install_target_dirs(claude_project)
+    ] == ["claude-compatible"]
+
+    both_project = tmp_path / "both-project"
+    (both_project / ".agents").mkdir(parents=True)
+    (both_project / ".claude").mkdir(parents=True)
+    assert [
+        target.name for target in get_default_install_target_dirs(both_project)
+    ] == [
+        "universal",
+        "claude-compatible",
+    ]
+
+
+def test_existing_target_dirs_only_include_concrete_skills_dirs(tmp_path):
+    (tmp_path / ".agents").mkdir()
+    (tmp_path / ".claude").mkdir()
+
+    assert get_existing_target_dirs(tmp_path) == []
+
+    (tmp_path / ".claude" / "skills").mkdir()
+
+    assert [target.name for target in get_existing_target_dirs(tmp_path)] == [
+        "claude-compatible"
+    ]
+    assert [
+        target.name
+        for target in get_existing_target_dirs(tmp_path, include_claude=True)
+    ] == ["universal", "claude-compatible"]
 
 
 def test_install_skill_creates_symlink_and_list_installed_skills_reports_it(tmp_path):

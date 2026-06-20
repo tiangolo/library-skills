@@ -48,6 +48,47 @@ def get_target_dirs(
     return targets
 
 
+def get_all_target_dirs(project_root: Path) -> list[InstallTarget]:
+    """Get all supported project-level target directories."""
+    return get_target_dirs(project_root, include_claude=True)
+
+
+def get_default_install_target_dirs(project_root: Path) -> list[InstallTarget]:
+    """Get interactive install target defaults from project state.
+
+    Parent directories are enough to signal that the project uses a target. When
+    neither target is present, prefer the universal .agents/skills target.
+    """
+    targets = get_all_target_dirs(project_root)
+    by_name = {target.name: target for target in targets}
+    selected: list[InstallTarget] = []
+
+    if (project_root / ".agents").exists():
+        selected.append(by_name["universal"])
+    if (project_root / ".claude").exists():
+        selected.append(by_name["claude-compatible"])
+
+    if not selected:
+        selected.append(by_name["universal"])
+    return selected
+
+
+def get_existing_target_dirs(
+    project_root: Path, *, include_claude: bool = False
+) -> list[InstallTarget]:
+    """Get targets to inspect for existing installed skills.
+
+    Without explicit Claude compatibility, this only returns concrete skills
+    directories that already exist. With include_claude, preserve the legacy
+    explicit behavior of managing both known targets.
+    """
+    if include_claude:
+        return get_target_dirs(project_root, include_claude=True)
+    return [
+        target for target in get_all_target_dirs(project_root) if target.path.is_dir()
+    ]
+
+
 class InstallError(Exception):
     """Raised when a skill cannot be installed safely."""
 

@@ -52,6 +52,34 @@ export function getTargetDirs(
   return targets;
 }
 
+export function getAllTargetDirs(projectRoot: string): InstallTarget[] {
+  return getTargetDirs(projectRoot, { includeClaude: true });
+}
+
+export function getDefaultInstallTargetDirs(projectRoot: string): InstallTarget[] {
+  const [universal, claude] = getAllTargetDirs(projectRoot);
+
+  const selected: InstallTarget[] = [];
+  if (existsSync(join(projectRoot, ".agents"))) {
+    selected.push(universal);
+  }
+  if (existsSync(join(projectRoot, ".claude"))) {
+    selected.push(claude);
+  }
+
+  return selected.length > 0 ? selected : [universal];
+}
+
+export function getExistingTargetDirs(
+  projectRoot: string,
+  options: { includeClaude?: boolean } = {},
+): InstallTarget[] {
+  if (options.includeClaude) {
+    return getTargetDirs(projectRoot, { includeClaude: true });
+  }
+  return getAllTargetDirs(projectRoot).filter((target) => isDirectory(target.path));
+}
+
 export function installSkill(
   skill: Skill,
   targetDir: string,
