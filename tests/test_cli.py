@@ -90,6 +90,79 @@ dependencies = ["worker-pkg>=1"]
     return project
 
 
+def write_node_workspace(tmp_path: Path) -> Path:
+    project = tmp_path / "node-workspace"
+    (project / "node_modules").mkdir(parents=True)
+    (project / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "workspace-root",
+                "workspaces": ["packages/*"],
+                "dependencies": {"root-pkg": "^1.0.0"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    api = project / "packages" / "api"
+    worker = project / "packages" / "worker"
+    api.mkdir(parents=True)
+    worker.mkdir(parents=True)
+    (api / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "api",
+                "dependencies": {"api-pkg": "^1.0.0"},
+                "devDependencies": {"workspace-lib": "workspace:*"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (worker / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "worker",
+                "optionalDependencies": {"worker-pkg": "^1.0.0"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    return project
+
+
+def add_node_workspace_files(project: Path) -> None:
+    (project / "node_modules").mkdir(parents=True, exist_ok=True)
+    (project / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "workspace-root",
+                "workspaces": ["packages/*"],
+                "dependencies": {"root-node-pkg": "^1.0.0"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    api = project / "packages" / "api"
+    worker = project / "packages" / "worker"
+    (api / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "api",
+                "dependencies": {"api-node-pkg": "^1.0.0"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (worker / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "worker",
+                "dependencies": {"worker-node-pkg": "^1.0.0"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def write_distribution_skill(
     site_packages: Path,
     *,
@@ -125,6 +198,19 @@ def write_node_package_skill(
     skill_name: str,
 ) -> Path:
     package_root = project / "node_modules" / package_name
+    return write_node_package_skill_at(
+        package_root,
+        package_name=package_name,
+        skill_name=skill_name,
+    )
+
+
+def write_node_package_skill_at(
+    package_root: Path,
+    *,
+    package_name: str,
+    skill_name: str,
+) -> Path:
     skill_dir = package_root / ".agents" / "skills" / skill_name
     skill_dir.mkdir(parents=True)
     skill_dir.joinpath("SKILL.md").write_text(
@@ -283,6 +369,55 @@ def test_workspace_member_scan_uses_workspace_venv_and_member_deps(
     assert not (api / ".agents" / "skills" / "api-skill").exists()
 
 
+def test_combined_uv_and_node_workspace_member_scan_uses_both_member_deps(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_workspace(tmp_path)
+    add_node_workspace_files(project)
+    api = project / "packages" / "api"
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution_skill(
+        site_packages,
+        dist_name="api-pkg",
+        package_dir="api_pkg",
+        skill_name="api-skill",
+    )
+    write_distribution_skill(
+        site_packages,
+        dist_name="root-pkg",
+        package_dir="root_pkg",
+        skill_name="root-skill",
+    )
+    write_node_package_skill(
+        project,
+        package_name="api-node-pkg",
+        skill_name="api-node-skill",
+    )
+    write_node_package_skill(
+        project,
+        package_name="root-node-pkg",
+        skill_name="root-node-skill",
+    )
+    (api / "src").mkdir()
+    monkeypatch.chdir(api / "src")
+
+    result = runner.invoke(app, ["scan", "--json"])
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["workspace_root"] == str(project)
+    assert payload["workspace_member"] == str(api.resolve())
+    assert payload["dependency_files"] == [
+        str(api.resolve() / "pyproject.toml"),
+        str(api.resolve() / "package.json"),
+    ]
+    assert [skill["name"] for skill in payload["skills"]] == [
+        "api-skill",
+        "api-node-skill",
+    ]
+
+
 def test_workspace_root_scan_uses_root_and_all_member_deps(tmp_path, monkeypatch):
     project = write_workspace(tmp_path)
     site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
@@ -321,6 +456,64 @@ def test_workspace_root_scan_uses_root_and_all_member_deps(tmp_path, monkeypatch
     ]
     assert "transitive-skill" not in [skill["name"] for skill in payload["skills"]]
     assert "transitive-skill" in [skill["name"] for skill in all_payload["skills"]]
+
+
+def test_combined_uv_and_node_workspace_root_scan_uses_all_deps(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_workspace(tmp_path)
+    add_node_workspace_files(project)
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution_skill(
+        site_packages,
+        dist_name="api-pkg",
+        package_dir="api_pkg",
+        skill_name="api-skill",
+    )
+    write_distribution_skill(
+        site_packages,
+        dist_name="root-pkg",
+        package_dir="root_pkg",
+        skill_name="root-skill",
+    )
+    write_distribution_skill(
+        site_packages,
+        dist_name="worker-pkg",
+        package_dir="worker_pkg",
+        skill_name="worker-skill",
+    )
+    for package_name, skill_name in [
+        ("api-node-pkg", "api-node-skill"),
+        ("root-node-pkg", "root-node-skill"),
+        ("worker-node-pkg", "worker-node-skill"),
+    ]:
+        write_node_package_skill(
+            project, package_name=package_name, skill_name=skill_name
+        )
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["scan", "--json"])
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["workspace_member"] == ""
+    assert payload["dependency_files"] == [
+        str(project / "pyproject.toml"),
+        str((project / "packages" / "api").resolve() / "pyproject.toml"),
+        str((project / "packages" / "worker").resolve() / "pyproject.toml"),
+        str(project / "package.json"),
+        str((project / "packages" / "api").resolve() / "package.json"),
+        str((project / "packages" / "worker").resolve() / "package.json"),
+    ]
+    assert [skill["name"] for skill in payload["skills"]] == [
+        "api-skill",
+        "root-skill",
+        "worker-skill",
+        "api-node-skill",
+        "root-node-skill",
+        "worker-node-skill",
+    ]
 
 
 def test_workspace_non_member_subdir_uses_root_and_all_member_deps(
@@ -374,6 +567,140 @@ def test_workspace_scan_prints_workspace_context(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert f"Workspace root: {project}" in result.output
     assert f"Workspace member: {api.resolve()}" in result.output
+
+
+def test_node_workspace_scan_prints_workspace_context(tmp_path, monkeypatch):
+    project = write_node_workspace(tmp_path)
+    api = project / "packages" / "api"
+    write_node_package_skill(project, package_name="api-pkg", skill_name="api-skill")
+    monkeypatch.chdir(api)
+
+    with patch.object(cli, "console", Console(width=1000)):
+        result = runner.invoke(app, ["scan"])
+
+    assert result.exit_code == 0
+    assert f"Workspace root: {project}" in result.output
+    assert f"Workspace member: {api.resolve()}" in result.output
+
+
+def test_node_workspace_member_scan_uses_member_deps_and_root_node_modules(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_node_workspace(tmp_path)
+    api = project / "packages" / "api"
+    for package_name, skill_name in [
+        ("api-pkg", "api-skill"),
+        ("workspace-lib", "workspace-lib-skill"),
+        ("root-pkg", "root-skill"),
+        ("worker-pkg", "worker-skill"),
+        ("transitive-node-pkg", "transitive-node-skill"),
+    ]:
+        write_node_package_skill(
+            project, package_name=package_name, skill_name=skill_name
+        )
+    (api / "src").mkdir()
+    monkeypatch.chdir(api / "src")
+
+    result = runner.invoke(app, ["scan", "--json"])
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["project_root"] == str(project)
+    assert payload["workspace_root"] == str(project)
+    assert payload["workspace_member"] == str(api.resolve())
+    assert payload["dependency_files"] == [str(api.resolve() / "package.json")]
+    assert payload["node_modules"] == str(project / "node_modules")
+    assert [skill["name"] for skill in payload["skills"]] == [
+        "api-skill",
+        "workspace-lib-skill",
+    ]
+
+
+def test_node_workspace_root_scan_uses_root_and_all_member_deps(tmp_path, monkeypatch):
+    project = write_node_workspace(tmp_path)
+    for package_name, skill_name in [
+        ("api-pkg", "api-skill"),
+        ("workspace-lib", "workspace-lib-skill"),
+        ("root-pkg", "root-skill"),
+        ("worker-pkg", "worker-skill"),
+        ("transitive-node-pkg", "transitive-node-skill"),
+    ]:
+        write_node_package_skill(
+            project, package_name=package_name, skill_name=skill_name
+        )
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["scan", "--json"])
+    all_result = runner.invoke(app, ["scan", "--json", "--all"])
+
+    payload = json.loads(result.output)
+    all_payload = json.loads(all_result.output)
+    assert result.exit_code == 0
+    assert payload["workspace_member"] == ""
+    assert payload["dependency_files"] == [
+        str(project / "package.json"),
+        str((project / "packages" / "api").resolve() / "package.json"),
+        str((project / "packages" / "worker").resolve() / "package.json"),
+    ]
+    assert [skill["name"] for skill in payload["skills"]] == [
+        "api-skill",
+        "root-skill",
+        "worker-skill",
+        "workspace-lib-skill",
+    ]
+    assert "transitive-node-skill" not in [skill["name"] for skill in payload["skills"]]
+    assert "transitive-node-skill" in [skill["name"] for skill in all_payload["skills"]]
+
+
+def test_node_workspace_non_member_subdir_uses_root_and_all_member_deps(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_node_workspace(tmp_path)
+    docs = project / "docs"
+    docs.mkdir()
+    for package_name, skill_name in [
+        ("api-pkg", "api-skill"),
+        ("root-pkg", "root-skill"),
+        ("worker-pkg", "worker-skill"),
+    ]:
+        write_node_package_skill(
+            project, package_name=package_name, skill_name=skill_name
+        )
+    monkeypatch.chdir(docs)
+
+    result = runner.invoke(app, ["scan", "--json"])
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["workspace_member"] == ""
+    assert [skill["name"] for skill in payload["skills"]] == [
+        "api-skill",
+        "root-skill",
+        "worker-skill",
+    ]
+
+
+def test_node_workspace_member_local_node_modules_is_not_ignored(tmp_path, monkeypatch):
+    project = write_node_workspace(tmp_path)
+    api = project / "packages" / "api"
+    write_node_package_skill(
+        project, package_name="api-pkg", skill_name="root-api-skill"
+    )
+    write_node_package_skill_at(
+        api / "node_modules" / "api-pkg",
+        package_name="api-pkg",
+        skill_name="member-api-skill",
+    )
+    monkeypatch.chdir(api)
+
+    result = runner.invoke(app, ["scan", "--json"])
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["node_modules"] == str(api / "node_modules")
+    assert [skill["name"] for skill in payload["skills"]] == ["member-api-skill"]
 
 
 def test_scan_includes_python_and_node_package_skills(tmp_path, monkeypatch):

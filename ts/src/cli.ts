@@ -5,7 +5,11 @@ import { Command } from "commander";
 import { realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getTopLevelDeps, getWorkspaceTopLevelDeps } from "./deps.js";
+import {
+	getNodeWorkspaceTopLevelDeps,
+	getTopLevelDeps,
+	getWorkspaceTopLevelDeps,
+} from "./deps.js";
 import {
 	getTargetDirs,
 	installSkill,
@@ -28,8 +32,11 @@ import {
 	type Skill,
 } from "./scanner.js";
 import {
+	findNodeWorkspace,
 	findUvWorkspace,
+	nodeWorkspaceDependencyFiles,
 	workspaceDependencyFiles,
+	type NodeWorkspace,
 	type UvWorkspace,
 } from "./workspace.js";
 
@@ -40,6 +47,9 @@ interface ProjectContext {
 	sitePackagesDir: string | null;
 	nodeModulesDir: string | null;
 	workspace: UvWorkspace | null;
+	nodeWorkspace: NodeWorkspace | null;
+	workspaceDependencyFiles: string[];
+	nodeWorkspaceDependencyFiles: string[];
 	dependencyFiles: string[];
 }
 
@@ -90,7 +100,12 @@ interface ScanOptions {
 
 function getProjectContext(cwd = process.cwd()): ProjectContext {
 	const workspace = findUvWorkspace(cwd);
-	const projectRoot = workspace?.root ?? findProjectRoot(cwd) ?? cwd;
+	const nodeWorkspace = findNodeWorkspace(cwd);
+	const projectRoot = workspace?.root ?? nodeWorkspace?.root ?? findProjectRoot(cwd) ?? cwd;
+	const workspaceFiles =
+		workspace === null ? [] : workspaceDependencyFiles(workspace);
+	const nodeWorkspaceFiles =
+		nodeWorkspace === null ? [] : nodeWorkspaceDependencyFiles(nodeWorkspace);
 	const targetEnvironment = findVenv(cwd);
 	const sitePackagesDir =
 		targetEnvironment === null ? null : getSitePackagesDir(targetEnvironment);
@@ -102,7 +117,10 @@ function getProjectContext(cwd = process.cwd()): ProjectContext {
 		sitePackagesDir,
 		nodeModulesDir,
 		workspace,
-		dependencyFiles: workspace ? workspaceDependencyFiles(workspace) : [],
+		nodeWorkspace,
+		workspaceDependencyFiles: workspaceFiles,
+		nodeWorkspaceDependencyFiles: nodeWorkspaceFiles,
+		dependencyFiles: [...workspaceFiles, ...nodeWorkspaceFiles],
 	};
 }
 
@@ -153,18 +171,34 @@ function topLevelSkills({
 		return skills;
 	}
 	const topLevelDeps = getTopLevelDeps(context.projectRoot);
-	const workspaceTopLevelDeps =
-		context.workspace === null
-			? null
-			: getWorkspaceTopLevelDeps(context.dependencyFiles);
+	const workspaceTopLevelDeps = getWorkspaceTopLevelDepsForContext(context);
 	const selectedTopLevelDeps =
-		context.workspace === null ? topLevelDeps : workspaceTopLevelDeps;
+		context.workspace === null && context.nodeWorkspace === null
+			? topLevelDeps
+			: workspaceTopLevelDeps;
 	if (selectedTopLevelDeps === null) {
 		return skills;
 	}
 	return skills.filter((skill) =>
 		selectedTopLevelDeps.has(normalizePackageName(skill.packageName)),
 	);
+}
+
+function getWorkspaceTopLevelDepsForContext(
+	context: ProjectContext,
+): Set<string> | null {
+	const dependencySets = [
+		context.workspace === null
+			? null
+			: getWorkspaceTopLevelDeps(context.workspaceDependencyFiles),
+		context.nodeWorkspace === null
+			? null
+			: getNodeWorkspaceTopLevelDeps(context.nodeWorkspaceDependencyFiles),
+	].filter((deps): deps is Set<string> => deps !== null);
+	if (dependencySets.length === 0) {
+		return null;
+	}
+	return new Set(dependencySets.flatMap((deps) => [...deps]));
 }
 
 function printWarnings(warnings: string[]): void {
@@ -193,6 +227,11 @@ function printContext(context: ProjectContext): void {
 		console.log(`Workspace root: ${context.workspace.root}`);
 		if (context.workspace.currentMember !== null) {
 			console.log(`Workspace member: ${context.workspace.currentMember}`);
+		}
+	} else if (context.nodeWorkspace !== null) {
+		console.log(`Workspace root: ${context.nodeWorkspace.root}`);
+		if (context.nodeWorkspace.currentMember !== null) {
+			console.log(`Workspace member: ${context.nodeWorkspace.currentMember}`);
 		}
 	}
 	console.log(
@@ -243,9 +282,12 @@ function scanJsonPayload({
 	result: ScanResult;
 }): Record<string, unknown> {
 	return {
-		project_root: context.projectRoot,
-		workspace_root: context.workspace?.root ?? "",
-		workspace_member: context.workspace?.currentMember ?? "",
+			project_root: context.projectRoot,
+			workspace_root: context.workspace?.root ?? context.nodeWorkspace?.root ?? "",
+			workspace_member:
+				context.workspace?.currentMember ??
+				context.nodeWorkspace?.currentMember ??
+				"",
 		dependency_files: context.dependencyFiles,
 		target_environment: context.targetEnvironment ?? "",
 		node_modules: context.nodeModulesDir ?? "",

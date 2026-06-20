@@ -8,6 +8,12 @@ export interface UvWorkspace {
 	currentMember: string | null;
 }
 
+export interface NodeWorkspace {
+	root: string;
+	members: string[];
+	currentMember: string | null;
+}
+
 export function findUvWorkspace(cwd: string): UvWorkspace | null {
 	for (const directory of ancestors(cwd)) {
 		const pyproject = `${directory}/pyproject.toml`;
@@ -28,6 +34,27 @@ export function findUvWorkspace(cwd: string): UvWorkspace | null {
 	return null;
 }
 
+export function findNodeWorkspace(cwd: string): NodeWorkspace | null {
+	for (const directory of ancestors(cwd)) {
+		const packageJson = `${directory}/package.json`;
+		if (!existsSync(packageJson)) {
+			continue;
+		}
+		const data = readPackageJson(packageJson);
+		const memberGlobs = getNodeWorkspaceGlobs(data);
+		if (memberGlobs === null) {
+			continue;
+		}
+		const members = findNodeWorkspaceMembers(directory, memberGlobs);
+		return {
+			root: directory,
+			members,
+			currentMember: findCurrentMember(cwd, members),
+		};
+	}
+	return null;
+}
+
 export function workspaceDependencyFiles(workspace: UvWorkspace): string[] {
 	if (workspace.currentMember !== null) {
 		return [`${workspace.currentMember}/pyproject.toml`];
@@ -38,12 +65,32 @@ export function workspaceDependencyFiles(workspace: UvWorkspace): string[] {
 	].filter((path) => existsSync(path));
 }
 
+export function nodeWorkspaceDependencyFiles(workspace: NodeWorkspace): string[] {
+	if (workspace.currentMember !== null) {
+		return [`${workspace.currentMember}/package.json`];
+	}
+	return [
+		`${workspace.root}/package.json`,
+		...workspace.members.map((member) => `${member}/package.json`),
+	].filter((path) => existsSync(path));
+}
+
 function readPyproject(path: string): TomlTable {
 	try {
 		const data = parse(readFileSync(path, "utf8"));
 		return isRecord(data) ? data : {};
 	} catch {
 		/* v8 ignore next -- covers invalid TOML or a race while reading. */
+		return {};
+	}
+}
+
+function readPackageJson(path: string): Record<string, unknown> {
+	try {
+		const data = JSON.parse(readFileSync(path, "utf8"));
+		return isRecord(data) ? data : {};
+	} catch {
+		/* v8 ignore next -- covers invalid JSON or a race while reading. */
 		return {};
 	}
 }
@@ -81,6 +128,40 @@ function findWorkspaceMembers(root: string, data: TomlTable): string[] {
 				continue;
 			}
 			if (isFile(`${member}/pyproject.toml`)) {
+				members.add(resolve(member));
+			}
+		}
+	}
+	return [...members].sort();
+}
+
+function getNodeWorkspaceGlobs(data: Record<string, unknown>): string[] | null {
+	const workspaces = data["workspaces"];
+	if (Array.isArray(workspaces)) {
+		return workspaces.filter((value): value is string => typeof value === "string");
+	}
+	if (isRecord(workspaces)) {
+		const packages = workspaces["packages"];
+		if (Array.isArray(packages)) {
+			return packages.filter((value): value is string => typeof value === "string");
+		}
+	}
+	return null;
+}
+
+function findNodeWorkspaceMembers(root: string, memberGlobs: string[]): string[] {
+	const includes = memberGlobs.filter((pattern) => !pattern.startsWith("!"));
+	const excludes = memberGlobs
+		.filter((pattern) => pattern.startsWith("!"))
+		.map((pattern) => pattern.slice(1));
+	const members = new Set<string>();
+	for (const memberGlob of includes) {
+		for (const member of expandMemberGlob(root, memberGlob)) {
+			const relativePath = relative(root, member).split(sep).join("/");
+			if (isExcluded(relativePath, excludes)) {
+				continue;
+			}
+			if (isFile(`${member}/package.json`)) {
 				members.add(resolve(member));
 			}
 		}

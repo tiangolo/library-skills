@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from .workspace import find_uv_workspace
+from .workspace import find_node_workspace, find_uv_workspace
 
 
 def find_project_root(cwd: Path) -> Path | None:
@@ -9,6 +9,9 @@ def find_project_root(cwd: Path) -> Path | None:
     workspace = find_uv_workspace(cwd)
     if workspace is not None:
         return workspace.root
+    node_workspace = find_node_workspace(cwd)
+    if node_workspace is not None:
+        return node_workspace.root
     for directory in [cwd, *cwd.parents]:
         if (
             (directory / "pyproject.toml").is_file()

@@ -19,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createProgram, main, testing as cliTesting } from "../src/cli.js";
 import {
   getNodeTopLevelDeps,
+  getNodeTopLevelDepsFromFiles,
   getPythonTopLevelDeps,
   getPythonTopLevelDepsFromFiles,
   getTopLevelDeps,
@@ -39,7 +40,9 @@ import {
   getSitePackagesDir,
 } from "../src/python-env.js";
 import {
+  findNodeWorkspace,
   findUvWorkspace,
+  nodeWorkspaceDependencyFiles,
   workspaceDependencyFiles,
 } from "../src/workspace.js";
 import {
@@ -576,6 +579,8 @@ test("handles missing, invalid, and partial pyproject dependency metadata", () =
   const packageArray = tempDir();
   writeFileSync(join(packageArray, "package.json"), "[]");
   expect(getNodeTopLevelDeps(packageArray)).toEqual(new Set());
+  expect(getNodeTopLevelDepsFromFiles([])).toBeNull();
+  expect(getNodeTopLevelDepsFromFiles([join(tempDir(), "missing.json")])).toBeNull();
 
   expect(getPythonTopLevelDepsFromFiles([])).toBeNull();
   expect(getPythonTopLevelDepsFromFiles([join(tempDir(), "missing.toml")])).toBeNull();
@@ -639,6 +644,81 @@ test("discovers uv workspace members and dependency files", () => {
   writeFileSync(join(project, "pyproject.toml"), "[tool]\nuv = 'not a table'\n");
   expect(findUvWorkspace(project)).toBeNull();
   expect(findUvWorkspace(tempDir())).toBeNull();
+});
+
+test("discovers Node workspace members and dependency files", () => {
+  const project = writeNodeWorkspace();
+  const api = join(project, "packages", "api");
+  const ignored = join(project, "packages", "ignored");
+  const skipOne = join(project, "packages", "skip-one");
+  const nested = join(api, "src");
+  mkdirSync(nested, { recursive: true });
+  mkdirSync(ignored, { recursive: true });
+  mkdirSync(skipOne, { recursive: true });
+  writeFileSync(join(ignored, "package.json"), '{"name": "ignored"}');
+  writeFileSync(join(skipOne, "package.json"), '{"name": "skip-one"}');
+  writeFileSync(
+    join(project, "package.json"),
+    JSON.stringify({
+      workspaces: [
+        1,
+        "packages/*",
+        "missing/*",
+        "!packages/ignored",
+        "!packages/skip-*",
+      ],
+    }),
+  );
+
+  const workspace = findNodeWorkspace(nested);
+  const rootWorkspace = findNodeWorkspace(project);
+
+  expect(workspace).toMatchObject({
+    root: project,
+    currentMember: api,
+  });
+  expect(workspace?.members).toEqual([
+    join(project, "packages", "api"),
+    join(project, "packages", "worker"),
+  ]);
+  expect(workspace ? nodeWorkspaceDependencyFiles(workspace) : []).toEqual([
+    join(api, "package.json"),
+  ]);
+  expect(findProjectRoot(nested)).toBe(project);
+  expect(rootWorkspace?.currentMember).toBeNull();
+  expect(rootWorkspace ? nodeWorkspaceDependencyFiles(rootWorkspace) : []).toEqual([
+    join(project, "package.json"),
+    join(project, "packages", "api", "package.json"),
+    join(project, "packages", "worker", "package.json"),
+  ]);
+
+  const plugin = join(api, "plugins", "demo");
+  mkdirSync(plugin, { recursive: true });
+  writeFileSync(join(plugin, "package.json"), '{"name": "plugin"}');
+  writeFileSync(
+    join(project, "package.json"),
+    JSON.stringify({
+      workspaces: ["packages/*", "packages/api/plugins/*"],
+    }),
+  );
+  expect(findNodeWorkspace(plugin)?.currentMember).toBe(plugin);
+
+  writeFileSync(
+    join(project, "package.json"),
+    JSON.stringify({ workspaces: { packages: ["packages/*"] } }),
+  );
+  expect(findNodeWorkspace(api)?.members).toEqual([
+    join(project, "packages", "api"),
+    join(project, "packages", "ignored"),
+    join(project, "packages", "skip-one"),
+    join(project, "packages", "worker"),
+  ]);
+
+  writeFileSync(join(project, "package.json"), '{"workspaces": {}}');
+  expect(findNodeWorkspace(project)).toBeNull();
+  writeFileSync(join(project, "package.json"), "{");
+  expect(findNodeWorkspace(project)).toBeNull();
+  expect(findNodeWorkspace(tempDir())).toBeNull();
 });
 
 test("resolves project virtualenvs and site-packages", () => {
@@ -950,6 +1030,53 @@ test("CLI scan in uv workspace member uses workspace venv and member deps", asyn
   expect(existsSync(join(api, ".agents", "skills", "api-skill"))).toBe(false);
 });
 
+test("CLI scan in combined uv and Node workspace member uses both member deps", async () => {
+  const project = writeWorkspace();
+  addNodeWorkspaceFiles(project);
+  const api = join(project, "packages", "api");
+  const apiSrc = join(api, "src");
+  const sitePackages = join(project, ".venv", "lib", "python3.12", "site-packages");
+  mkdirSync(apiSrc, { recursive: true });
+  writePackageSkill({
+    sitePackages,
+    packageDir: "api_pkg",
+    skillName: "api-skill",
+    packageName: "api-pkg",
+  });
+  writePackageSkill({
+    sitePackages,
+    packageDir: "root_pkg",
+    skillName: "root-skill",
+    packageName: "root-pkg",
+  });
+  writeNodePackageSkill({
+    nodeModules: join(project, "node_modules"),
+    packageName: "api-node-pkg",
+    skillName: "api-node-skill",
+  });
+  writeNodePackageSkill({
+    nodeModules: join(project, "node_modules"),
+    packageName: "root-node-pkg",
+    skillName: "root-node-skill",
+  });
+  process.chdir(apiSrc);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan", "--json"]);
+  const payload = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+
+  expect(payload.workspace_root).toBe(project);
+  expect(payload.workspace_member).toBe(api);
+  expect(payload.dependency_files).toEqual([
+    join(api, "pyproject.toml"),
+    join(api, "package.json"),
+  ]);
+  expect(payload.skills.map((skill: { name: string }) => skill.name)).toEqual([
+    "api-skill",
+    "api-node-skill",
+  ]);
+});
+
 test("CLI human context prints uv workspace roots", async () => {
   const project = writeWorkspace();
   const api = join(project, "packages", "api");
@@ -959,6 +1086,23 @@ test("CLI human context prints uv workspace roots", async () => {
     packageDir: "api_pkg",
     skillName: "api-skill",
     packageName: "api-pkg",
+  });
+  process.chdir(api);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan"]);
+
+  expect(log).toHaveBeenCalledWith(`Workspace root: ${project}`);
+  expect(log).toHaveBeenCalledWith(`Workspace member: ${api}`);
+});
+
+test("CLI human context prints Node workspace roots", async () => {
+  const project = writeNodeWorkspace();
+  const api = join(project, "packages", "api");
+  writeNodePackageSkill({
+    nodeModules: join(project, "node_modules"),
+    packageName: "api-pkg",
+    skillName: "api-skill",
   });
   process.chdir(api);
   const { log } = mockConsole();
@@ -1012,6 +1156,53 @@ test("CLI scan from uv workspace root uses root and all member deps", async () =
   );
 });
 
+test("CLI scan from combined uv and Node workspace root uses all deps", async () => {
+  const project = writeWorkspace();
+  addNodeWorkspaceFiles(project);
+  const sitePackages = join(project, ".venv", "lib", "python3.12", "site-packages");
+  for (const [packageDir, skillName, packageName] of [
+    ["api_pkg", "api-skill", "api-pkg"],
+    ["root_pkg", "root-skill", "root-pkg"],
+    ["worker_pkg", "worker-skill", "worker-pkg"],
+  ]) {
+    writePackageSkill({ sitePackages, packageDir, skillName, packageName });
+  }
+  for (const [packageName, skillName] of [
+    ["api-node-pkg", "api-node-skill"],
+    ["root-node-pkg", "root-node-skill"],
+    ["worker-node-pkg", "worker-node-skill"],
+  ]) {
+    writeNodePackageSkill({
+      nodeModules: join(project, "node_modules"),
+      packageName,
+      skillName,
+    });
+  }
+  process.chdir(project);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan", "--json"]);
+  const payload = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+
+  expect(payload.workspace_member).toBe("");
+  expect(payload.dependency_files).toEqual([
+    join(project, "pyproject.toml"),
+    join(project, "packages", "api", "pyproject.toml"),
+    join(project, "packages", "worker", "pyproject.toml"),
+    join(project, "package.json"),
+    join(project, "packages", "api", "package.json"),
+    join(project, "packages", "worker", "package.json"),
+  ]);
+  expect(payload.skills.map((skill: { name: string }) => skill.name)).toEqual([
+    "api-skill",
+    "root-skill",
+    "worker-skill",
+    "api-node-skill",
+    "root-node-skill",
+    "worker-node-skill",
+  ]);
+});
+
 test("CLI scan from uv workspace non-member subdir uses root and all member deps", async () => {
   const project = writeWorkspace();
   const docs = join(project, "docs");
@@ -1035,6 +1226,144 @@ test("CLI scan from uv workspace non-member subdir uses root and all member deps
     "api-skill",
     "root-skill",
     "worker-skill",
+  ]);
+});
+
+test("CLI scan in Node workspace member uses member deps and root node_modules", async () => {
+  const project = writeNodeWorkspace();
+  const api = join(project, "packages", "api");
+  const apiSrc = join(api, "src");
+  mkdirSync(apiSrc, { recursive: true });
+  for (const [packageName, skillName] of [
+    ["api-pkg", "api-skill"],
+    ["workspace-lib", "workspace-lib-skill"],
+    ["root-pkg", "root-skill"],
+    ["worker-pkg", "worker-skill"],
+    ["transitive-node-pkg", "transitive-node-skill"],
+  ]) {
+    writeNodePackageSkill({
+      nodeModules: join(project, "node_modules"),
+      packageName,
+      skillName,
+    });
+  }
+  process.chdir(apiSrc);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan", "--json"]);
+  const payload = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+
+  expect(payload.project_root).toBe(project);
+  expect(payload.workspace_root).toBe(project);
+  expect(payload.workspace_member).toBe(api);
+  expect(payload.dependency_files).toEqual([join(api, "package.json")]);
+  expect(payload.node_modules).toBe(join(project, "node_modules"));
+  expect(payload.skills.map((skill: { name: string }) => skill.name)).toEqual([
+    "api-skill",
+    "workspace-lib-skill",
+  ]);
+});
+
+test("CLI scan from Node workspace root uses root and all member deps", async () => {
+  const project = writeNodeWorkspace();
+  for (const [packageName, skillName] of [
+    ["api-pkg", "api-skill"],
+    ["workspace-lib", "workspace-lib-skill"],
+    ["root-pkg", "root-skill"],
+    ["worker-pkg", "worker-skill"],
+    ["transitive-node-pkg", "transitive-node-skill"],
+  ]) {
+    writeNodePackageSkill({
+      nodeModules: join(project, "node_modules"),
+      packageName,
+      skillName,
+    });
+  }
+  process.chdir(project);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan", "--json"]);
+  const payload = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "scan",
+    "--json",
+    "--all",
+  ]);
+  const allPayload = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+
+  expect(payload.workspace_member).toBe("");
+  expect(payload.dependency_files).toEqual([
+    join(project, "package.json"),
+    join(project, "packages", "api", "package.json"),
+    join(project, "packages", "worker", "package.json"),
+  ]);
+  expect(payload.skills.map((skill: { name: string }) => skill.name)).toEqual([
+    "api-skill",
+    "root-skill",
+    "worker-skill",
+    "workspace-lib-skill",
+  ]);
+  expect(payload.skills.map((skill: { name: string }) => skill.name)).not.toContain(
+    "transitive-node-skill",
+  );
+  expect(allPayload.skills.map((skill: { name: string }) => skill.name)).toContain(
+    "transitive-node-skill",
+  );
+});
+
+test("CLI scan from Node workspace non-member subdir uses root and all member deps", async () => {
+  const project = writeNodeWorkspace();
+  const docs = join(project, "docs");
+  mkdirSync(docs, { recursive: true });
+  for (const [packageName, skillName] of [
+    ["api-pkg", "api-skill"],
+    ["root-pkg", "root-skill"],
+    ["worker-pkg", "worker-skill"],
+  ]) {
+    writeNodePackageSkill({
+      nodeModules: join(project, "node_modules"),
+      packageName,
+      skillName,
+    });
+  }
+  process.chdir(docs);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan", "--json"]);
+  const payload = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+
+  expect(payload.workspace_member).toBe("");
+  expect(payload.skills.map((skill: { name: string }) => skill.name)).toEqual([
+    "api-skill",
+    "root-skill",
+    "worker-skill",
+  ]);
+});
+
+test("CLI scan in Node workspace does not ignore member-local node_modules", async () => {
+  const project = writeNodeWorkspace();
+  const api = join(project, "packages", "api");
+  writeNodePackageSkill({
+    nodeModules: join(project, "node_modules"),
+    packageName: "api-pkg",
+    skillName: "root-api-skill",
+  });
+  writeNodePackageSkillAt({
+    packageRoot: join(api, "node_modules", "api-pkg"),
+    packageName: "api-pkg",
+    skillName: "member-api-skill",
+  });
+  process.chdir(api);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan", "--json"]);
+  const payload = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+
+  expect(payload.node_modules).toBe(join(api, "node_modules"));
+  expect(payload.skills.map((skill: { name: string }) => skill.name)).toEqual([
+    "member-api-skill",
   ]);
 });
 
@@ -1407,6 +1736,20 @@ function writeNodePackageSkill({
   version?: string;
 }): void {
   const packageRoot = join(nodeModules, packageName);
+  writeNodePackageSkillAt({ packageRoot, packageName, skillName, version });
+}
+
+function writeNodePackageSkillAt({
+  packageRoot,
+  packageName,
+  skillName,
+  version = "1.0.0",
+}: {
+  packageRoot: string;
+  packageName: string;
+  skillName: string;
+  version?: string;
+}): void {
   mkdirSync(packageRoot, { recursive: true });
   writeFileSync(
     join(packageRoot, "package.json"),
@@ -1489,6 +1832,67 @@ function writeWorkspace(): string {
     ].join("\n"),
   );
   return project;
+}
+
+function writeNodeWorkspace(): string {
+  const project = tempDir();
+  const api = join(project, "packages", "api");
+  const worker = join(project, "packages", "worker");
+  mkdirSync(join(project, "node_modules"), { recursive: true });
+  mkdirSync(api, { recursive: true });
+  mkdirSync(worker, { recursive: true });
+  writeFileSync(
+    join(project, "package.json"),
+    JSON.stringify({
+      name: "workspace-root",
+      workspaces: ["packages/*"],
+      dependencies: { "root-pkg": "^1.0.0" },
+    }),
+  );
+  writeFileSync(
+    join(api, "package.json"),
+    JSON.stringify({
+      name: "api",
+      dependencies: { "api-pkg": "^1.0.0" },
+      devDependencies: { "workspace-lib": "workspace:*" },
+    }),
+  );
+  writeFileSync(
+    join(worker, "package.json"),
+    JSON.stringify({
+      name: "worker",
+      optionalDependencies: { "worker-pkg": "^1.0.0" },
+    }),
+  );
+  return project;
+}
+
+function addNodeWorkspaceFiles(project: string): void {
+  const api = join(project, "packages", "api");
+  const worker = join(project, "packages", "worker");
+  mkdirSync(join(project, "node_modules"), { recursive: true });
+  writeFileSync(
+    join(project, "package.json"),
+    JSON.stringify({
+      name: "workspace-root",
+      workspaces: ["packages/*"],
+      dependencies: { "root-node-pkg": "^1.0.0" },
+    }),
+  );
+  writeFileSync(
+    join(api, "package.json"),
+    JSON.stringify({
+      name: "api",
+      dependencies: { "api-node-pkg": "^1.0.0" },
+    }),
+  );
+  writeFileSync(
+    join(worker, "package.json"),
+    JSON.stringify({
+      name: "worker",
+      dependencies: { "worker-node-pkg": "^1.0.0" },
+    }),
+  );
 }
 
 function makeSkill({ name, skillDir }: { name: string; skillDir: string }): Skill {

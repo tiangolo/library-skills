@@ -68,6 +68,34 @@ export function getNodeTopLevelDeps(projectRoot: string): Set<string> | null {
 		return null;
 	}
 
+	return getNodeTopLevelDepsFromFiles([packageJson]);
+}
+
+export function getNodeTopLevelDepsFromFiles(
+	packageJsonFiles: string[],
+): Set<string> | null {
+	if (packageJsonFiles.length === 0) {
+		return null;
+	}
+
+	const deps = new Set<string>();
+	let found = false;
+	for (const packageJson of packageJsonFiles) {
+		if (!existsSync(packageJson)) {
+			continue;
+		}
+		const data = readPackageJson(packageJson);
+		if (data === null) {
+			return null;
+		}
+		found = true;
+		extractNodeTopLevelDeps(data, deps);
+	}
+
+	return found ? deps : null;
+}
+
+function readPackageJson(packageJson: string): Record<string, unknown> | null {
 	let data: unknown;
 	try {
 		data = JSON.parse(readFileSync(packageJson, "utf8"));
@@ -76,10 +104,16 @@ export function getNodeTopLevelDeps(projectRoot: string): Set<string> | null {
 	}
 
 	if (!isRecord(data)) {
-		return new Set();
+		return {};
 	}
 
-	const deps = new Set<string>();
+	return data;
+}
+
+function extractNodeTopLevelDeps(
+	data: Record<string, unknown>,
+	deps: Set<string>,
+): void {
 	for (const field of [
 		"dependencies",
 		"devDependencies",
@@ -94,8 +128,6 @@ export function getNodeTopLevelDeps(projectRoot: string): Set<string> | null {
 			deps.add(normalizePackageName(packageName));
 		}
 	}
-
-	return deps;
 }
 
 export function getTopLevelDeps(projectRoot: string): Set<string> | null {
@@ -111,6 +143,12 @@ export function getTopLevelDeps(projectRoot: string): Set<string> | null {
 
 export function getWorkspaceTopLevelDeps(pyprojects: string[]): Set<string> | null {
 	return getPythonTopLevelDepsFromFiles(pyprojects);
+}
+
+export function getNodeWorkspaceTopLevelDeps(
+	packageJsonFiles: string[],
+): Set<string> | null {
+	return getNodeTopLevelDepsFromFiles(packageJsonFiles);
 }
 
 function extractDepsFromSpecs(depSpecs: unknown[], deps: Set<string>): void {

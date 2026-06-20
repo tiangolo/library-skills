@@ -12,7 +12,11 @@ from rich_toolkit import RichToolkit
 from rich_toolkit.menu import Option
 from rich_toolkit.styles import MinimalStyle
 
-from .deps import get_top_level_deps, get_workspace_top_level_deps
+from .deps import (
+    get_node_workspace_top_level_deps,
+    get_top_level_deps,
+    get_workspace_top_level_deps,
+)
 from .installer import (
     InstallError,
     InstallTarget,
@@ -34,7 +38,14 @@ from .scanner import (
     scan_node_packages,
     scan_python_distributions,
 )
-from .workspace import UvWorkspace, find_uv_workspace, workspace_dependency_files
+from .workspace import (
+    NodeWorkspace,
+    UvWorkspace,
+    find_node_workspace,
+    find_uv_workspace,
+    node_workspace_dependency_files,
+    workspace_dependency_files,
+)
 
 RICH_THEME = {
     "active": "green",
@@ -68,6 +79,9 @@ class ProjectContext:
     site_packages_dir: Path | None
     node_modules_dir: Path | None
     workspace: UvWorkspace | None = None
+    node_workspace: NodeWorkspace | None = None
+    workspace_dependency_files: tuple[Path, ...] = ()
+    node_workspace_dependency_files: tuple[Path, ...] = ()
     dependency_files: tuple[Path, ...] = ()
 
 
@@ -91,8 +105,21 @@ def _get_rich_toolkit() -> RichToolkit:
 def _get_project_context(cwd: Path | None = None) -> ProjectContext:
     cwd = cwd or Path.cwd()
     workspace = find_uv_workspace(cwd)
+    node_workspace = find_node_workspace(cwd)
     project_root = (
-        workspace.root if workspace is not None else find_project_root(cwd) or cwd
+        workspace.root
+        if workspace is not None
+        else node_workspace.root
+        if node_workspace is not None
+        else find_project_root(cwd) or cwd
+    )
+    workspace_files = (
+        tuple(workspace_dependency_files(workspace)) if workspace is not None else ()
+    )
+    node_workspace_files = (
+        tuple(node_workspace_dependency_files(node_workspace))
+        if node_workspace is not None
+        else ()
     )
     target_environment = find_venv(cwd)
     site_packages_dir = (
@@ -106,9 +133,10 @@ def _get_project_context(cwd: Path | None = None) -> ProjectContext:
         site_packages_dir=site_packages_dir,
         node_modules_dir=node_modules_dir,
         workspace=workspace,
-        dependency_files=tuple(workspace_dependency_files(workspace))
-        if workspace
-        else (),
+        node_workspace=node_workspace,
+        workspace_dependency_files=workspace_files,
+        node_workspace_dependency_files=node_workspace_files,
+        dependency_files=workspace_files + node_workspace_files,
     )
 
 
@@ -159,6 +187,10 @@ def _print_context(context: ProjectContext) -> None:
         console.print(f"Workspace root: {context.workspace.root}")
         if context.workspace.current_member is not None:
             console.print(f"Workspace member: {context.workspace.current_member}")
+    elif context.node_workspace is not None:
+        console.print(f"Workspace root: {context.node_workspace.root}")
+        if context.node_workspace.current_member is not None:
+            console.print(f"Workspace member: {context.node_workspace.current_member}")
     if context.target_environment:
         console.print(
             f"Target Python environment: "
@@ -211,7 +243,23 @@ def _top_level_skills(
 
     top_level_deps = get_top_level_deps(context.project_root)
     if context.workspace is not None:
-        top_level_deps = get_workspace_top_level_deps(list(context.dependency_files))
+        top_level_deps = get_workspace_top_level_deps(
+            list(context.workspace_dependency_files)
+        )
+        if context.node_workspace is not None:
+            node_top_level_deps = get_node_workspace_top_level_deps(
+                list(context.node_workspace_dependency_files)
+            )
+            if node_top_level_deps is not None:
+                top_level_deps = (
+                    node_top_level_deps
+                    if top_level_deps is None
+                    else top_level_deps | node_top_level_deps
+                )
+    elif context.node_workspace is not None:
+        top_level_deps = get_node_workspace_top_level_deps(
+            list(context.node_workspace_dependency_files)
+        )
     if top_level_deps is None:
         return skills
 
@@ -227,10 +275,12 @@ def _scan_json_payload(
 ) -> dict[str, object]:
     return {
         "project_root": str(context.project_root),
-        "workspace_root": str(context.workspace.root) if context.workspace else "",
+        "workspace_root": str(_workspace_root(context)),
         "workspace_member": (
             str(context.workspace.current_member)
             if context.workspace and context.workspace.current_member
+            else str(context.node_workspace.current_member)
+            if context.node_workspace and context.node_workspace.current_member
             else ""
         ),
         "dependency_files": [str(path) for path in context.dependency_files],
@@ -248,6 +298,14 @@ def _scan_json_payload(
         ],
         "warnings": result.warnings,
     }
+
+
+def _workspace_root(context: ProjectContext) -> Path | str:
+    if context.workspace is not None:
+        return context.workspace.root
+    if context.node_workspace is not None:
+        return context.node_workspace.root
+    return ""
 
 
 def _select_skills_interactive(skills: list[Skill]) -> list[Skill]:
