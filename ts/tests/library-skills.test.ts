@@ -469,7 +469,7 @@ test("parses project dependency names from pyproject.toml", () => {
     join(project, "pyproject.toml"),
     [
       "[project]",
-      'dependencies = ["Example_Pkg>=1", "requests[security]; python_version >= \\"3.11\\""]',
+      'dependencies = ["Example_Pkg>=1", "FastAPI~=0.115", "requests[security]; python_version >= \\"3.11\\""]',
       "[project.optional-dependencies]",
       'dev = ["PyTest < 9"]',
       "",
@@ -477,7 +477,7 @@ test("parses project dependency names from pyproject.toml", () => {
   );
 
   expect(getPythonTopLevelDeps(project)).toEqual(
-    new Set(["example-pkg", "requests", "pytest"]),
+    new Set(["example-pkg", "fastapi", "requests", "pytest"]),
   );
 });
 

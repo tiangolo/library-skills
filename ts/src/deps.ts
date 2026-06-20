@@ -97,7 +97,7 @@ function extractDepsFromSpecs(depSpecs: unknown[], deps: Set<string>): void {
     if (typeof depSpec !== "string") {
       continue;
     }
-    const packageName = depSpec.split(/[>=<![\];,\s]/)[0]?.trim();
+    const packageName = depSpec.split(/[~>=<![\];,\s]/)[0]?.trim();
     if (packageName && !packageName.startsWith("#")) {
       deps.add(normalizePackageName(packageName));
     }
