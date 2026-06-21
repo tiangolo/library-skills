@@ -1648,6 +1648,7 @@ def test_reconcile_helpers_cover_selection_skip_and_not_found(
         def __init__(self, label, *, options, **kwargs):
             assert "repair" in label
             assert kwargs["multiple"] is True
+            assert options[0]["name"] == "demo-skill [Agents]"
             self.options = options
             self.checked = set()
 
@@ -1685,6 +1686,10 @@ def test_select_targets_interactive_preselects_defaults(monkeypatch, tmp_path):
 
     class FakeMenu:
         def __init__(self, _label, *, options, **_kwargs):
+            assert [option["name"] for option in options] == [
+                "Agents (.agents/skills)",
+                "Claude Code (.claude/skills)",
+            ]
             self.options = options
             self.checked = set()
 
@@ -1762,6 +1767,19 @@ def test_display_path_prefers_project_relative_paths(tmp_path):
     )
     assert cli._display_path(outside, project) == str(outside)
     assert cli._display_path(None, project) == ""
+
+
+def test_target_prompt_labels_are_user_facing(tmp_path):
+    agents = cli.InstallTarget("universal", tmp_path / ".agents" / "skills")
+    claude = cli.InstallTarget("claude-compatible", tmp_path / ".claude" / "skills")
+    custom = cli.InstallTarget("custom", tmp_path / "custom")
+
+    assert cli._target_prompt_name(agents) == "Agents (.agents/skills)"
+    assert cli._target_prompt_name(claude) == "Claude Code (.claude/skills)"
+    assert cli._target_prompt_name(custom) == "custom"
+    assert cli._target_short_name(agents) == "Agents"
+    assert cli._target_short_name(claude) == "Claude Code"
+    assert cli._target_short_name(custom) == "custom"
 
 
 def test_main_module_invokes_cli_main():

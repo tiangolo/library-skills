@@ -237,6 +237,26 @@ function displayPath(path: string | null | undefined, projectRoot: string): stri
 	return path;
 }
 
+function targetPromptName(target: InstallTarget): string {
+	if (target.name === "universal") {
+		return "Agents (.agents/skills)";
+	}
+	if (target.name === "claude-compatible") {
+		return "Claude Code (.claude/skills)";
+	}
+	return target.name;
+}
+
+function targetShortName(target: InstallTarget): string {
+	if (target.name === "universal") {
+		return "Agents";
+	}
+	if (target.name === "claude-compatible") {
+		return "Claude Code";
+	}
+	return target.name;
+}
+
 function printContext(context: ProjectContext): void {
 	output.printTitle("context");
 	const rows: Array<Record<string, string>> = [
@@ -520,7 +540,7 @@ async function selectTargetsInteractive({
 		message:
 			"Select installation targets (press Space to select, Enter to confirm):",
 		choices: getAllTargetDirs(projectRoot).map((target) => ({
-			name: displayPath(target.path, projectRoot),
+			name: targetPromptName(target),
 			value: target,
 			checked: defaultNames.has(target.name),
 		})),
@@ -572,7 +592,7 @@ async function selectInstalledSkillsInteractive(
 	return checkbox<InstalledStatus>({
 		message: "Select skills to remove (press Space to select, Enter to confirm):",
 		choices: removable.map((status) => ({
-			name: `${status.name} [${status.target.name}]`,
+			name: `${status.name} [${targetShortName(status.target)}]`,
 			value: status,
 		})),
 	});
@@ -631,7 +651,7 @@ async function selectStatusesInteractive(
 	return checkbox<InstalledStatus>({
 		message: `Select skills to ${action} (press Space to select, Enter to confirm):`,
 		choices: statuses.map((status) => ({
-			name: `${status.name} [${status.target.name}]`,
+			name: `${status.name} [${targetShortName(status.target)}]`,
 			value: status,
 			checked: true,
 		})),
@@ -1255,6 +1275,8 @@ export const testing = {
 	sync,
 	topLevelSkills,
 	displayPath,
+	targetPromptName,
+	targetShortName,
 	printTable: output.printTable,
 	printSummary: output.printSummary,
 };
