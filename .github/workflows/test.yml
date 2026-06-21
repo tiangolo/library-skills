@@ -12,19 +12,19 @@ on:
     # cron every week on monday
     - cron: "0 0 * * 1"
 
-permissions: {}
 
+permissions: {}
 env:
   UV_NO_SYNC: true
   INLINE_SNAPSHOT_DEFAULT_FLAGS: review
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
-    # Required permissions
     permissions:
       contents: read
       pull-requests: read
+    runs-on: ubuntu-latest
+    # Required permissions
     # Set job outputs to values from filter step
     outputs:
       python: ${{ steps.filter.outputs.python }}
@@ -57,18 +57,18 @@ jobs:
             - vitest.config.ts
 
   test-typescript:
+    permissions:
+      contents: read
     needs:
       - changes
     if: needs.changes.outputs.typescript == 'true' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.0.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 24
           cache: npm
@@ -82,6 +82,8 @@ jobs:
         run: npm run build
 
   test-python:
+    permissions:
+      contents: read
     needs:
       - changes
     if: needs.changes.outputs.python == 'true' || github.ref == 'refs/heads/main'
@@ -109,8 +111,6 @@ jobs:
             uv-resolution: highest
       fail-fast: false
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
     env:
       UV_PYTHON: ${{ matrix.python-version }}
       UV_RESOLUTION: ${{ matrix.uv-resolution }}
@@ -146,11 +146,11 @@ jobs:
           include-hidden-files: true
 
   coverage-combine:
+    permissions:
+      contents: read
     needs:
       - test-python
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
