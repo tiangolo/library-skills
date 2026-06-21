@@ -17,9 +17,6 @@
 <a href="https://github.com/tiangolo/library-skills/actions?query=workflow%3ATest+event%3Apush+branch%3Amain">
     <img src="https://github.com/tiangolo/library-skills/actions/workflows/test.yml/badge.svg?event=push&branch=main" alt="Test">
 </a>
-<a href="https://github.com/tiangolo/library-skills/actions?query=workflow%3APublish">
-    <img src="https://github.com/tiangolo/library-skills/actions/workflows/publish.yml/badge.svg" alt="Publish">
-</a>
 <a href="https://coverage-badge.samuelcolvin.workers.dev/redirect/tiangolo/library-skills">
     <img src="https://coverage-badge.samuelcolvin.workers.dev/tiangolo/library-skills.svg" alt="Coverage">
 </a>
