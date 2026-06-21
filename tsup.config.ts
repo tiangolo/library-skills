@@ -10,7 +10,7 @@ export default defineConfig([
       "ts/src/installer.ts",
     ],
     outDir: "ts/dist",
-    format: ["esm", "cjs"],
+    format: ["esm"],
     dts: true,
     clean: true,
   },
