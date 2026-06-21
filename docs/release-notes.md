@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Docs
+
+* 📝 Add docs for pre-commit. PR [#147](https://github.com/tiangolo/library-skills/pull/147) by [@tiangolo](https://github.com/tiangolo).
+
 ## 0.0.18 (2026-06-21)
 
 ### Fixes
