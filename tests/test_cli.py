@@ -1601,7 +1601,7 @@ def test_select_helpers_use_rich_toolkit(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkit([skill]))
 
     assert cli._select_skills_interactive([skill]) == [skill]
-    assert "Install new skills" in capsys.readouterr().out
+    assert "install" in capsys.readouterr().out
 
     monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkit([status]))
 
@@ -1658,7 +1658,7 @@ def test_reconcile_helpers_cover_selection_skip_and_not_found(
     monkeypatch.setattr(cli, "Menu", FakeMenu)
 
     assert cli._select_statuses_interactive([status], action="repair") == [status]
-    assert "Repair installed skills" in capsys.readouterr().out
+    assert "repair" in capsys.readouterr().out
     assert cli._select_statuses_interactive([], action="repair") == []
 
     skipped = cli.InstalledStatus(

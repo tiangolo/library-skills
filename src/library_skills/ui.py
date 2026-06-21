@@ -85,16 +85,10 @@ def print_message(message: str, *, console: Console | None = None) -> None:
 def print_action_header(
     action: str, *, console: Console | None = None, before: bool = True
 ) -> None:
-    labels = {
-        "install": "Install new skills",
-        "repair": "Repair installed skills",
-        "remove": "Remove stale skills",
-    }
-    label = labels[action]
     target_console = _console(console)
     if before:
         target_console.print()
-    target_console.print(f"{_badge(f'action.{action}', label)}")
+    target_console.print(f"{_badge(f'action.{action}', action)}")
 
 
 def print_warnings(warnings: list[str], *, console: Console | None = None) -> None:

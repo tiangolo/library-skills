@@ -55,15 +55,10 @@ export function printActionHeader(
 	action: "install" | "repair" | "remove",
 	options: { before?: boolean } = {},
 ): void {
-	const labels = {
-		install: "Install new skills",
-		repair: "Repair installed skills",
-		remove: "Remove stale skills",
-	};
 	if (options.before ?? true) {
 		console.log();
 	}
-	console.log(badge(`action.${action}`, labels[action]));
+	console.log(badge(`action.${action}`, action));
 }
 
 export function printResult({

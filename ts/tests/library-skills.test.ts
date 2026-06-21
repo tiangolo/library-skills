@@ -1629,7 +1629,7 @@ test("CLI reconcile helpers cover interactive selection and missing removals", a
   await expect(cliTesting.selectStatusesInteractive([status], "repair")).resolves.toEqual([
     status,
   ]);
-  expect(log).toHaveBeenCalledWith(expect.stringContaining("Repair installed skills"));
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("repair"));
   await expect(cliTesting.selectStatusesInteractive([], "repair")).resolves.toEqual([]);
 
   expect(cliTesting.removeSelected({ statuses: [status], projectRoot: root })).toBe(0);
