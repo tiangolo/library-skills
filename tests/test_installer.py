@@ -194,6 +194,24 @@ def test_get_symlink_target_falls_back_to_absolute_on_relpath_error(
     assert _get_symlink_target(source=source, dest=dest) == source
 
 
+def test_get_symlink_target_uses_forward_slashes_for_relative_targets(
+    tmp_path,
+    monkeypatch,
+):
+    source = tmp_path / "node_modules" / "pkg" / ".agents" / "skills" / "demo-skill"
+    dest = tmp_path / ".agents" / "skills" / "demo-skill"
+
+    monkeypatch.setattr(
+        "library_skills.installer.os.path.relpath",
+        lambda _source, *, start: r"..\..\node_modules\pkg\.agents\skills\demo-skill",
+    )
+    monkeypatch.setattr(installer.os, "sep", "\\")
+
+    assert str(_get_symlink_target(source=source, dest=dest)) == (
+        "../../node_modules/pkg/.agents/skills/demo-skill"
+    )
+
+
 def test_list_installed_skills_handles_missing_target_and_directories(tmp_path):
     target_dir = tmp_path / ".agents" / "skills"
 

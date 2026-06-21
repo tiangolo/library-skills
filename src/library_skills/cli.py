@@ -697,6 +697,12 @@ def _install_selected(
                 f"{_display_path(dest, project_root)}"
             )
             installed_count += 1
+    if installed_count and not copy:
+        console.print(
+            "[dim]Tip: These relative symlinks can be committed to Git when your "
+            "project uses stable repo-local installs. They resolve after "
+            "dependencies are installed.[/dim]"
+        )
     return installed_count
 
 

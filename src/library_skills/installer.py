@@ -149,11 +149,12 @@ def install_skill(
     return dest
 
 
-def _get_symlink_target(*, source: Path, dest: Path) -> Path:
+def _get_symlink_target(*, source: Path, dest: Path) -> Path | str:
     try:
-        return Path(os.path.relpath(source, start=dest.parent.resolve()))
+        relative_target = os.path.relpath(source, start=dest.parent.resolve())
     except ValueError:
         return source
+    return relative_target.replace(os.sep, "/")
 
 
 def uninstall_skill(skill_name: str, target_dir: Path) -> bool:

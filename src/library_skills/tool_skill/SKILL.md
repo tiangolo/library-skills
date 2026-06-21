@@ -32,5 +32,6 @@ Agents bundle their own skills by including an `.agents/skills` directory. More 
 ## Safety
 
 - Prefer rerunning `library-skills` over editing managed symlinks manually.
+- If installed skill symlinks are broken, dependencies may not be installed yet. Try the project's normal install command first, such as `uv sync`, `npm install`, or `bun install`, then rerun `library-skills`.
 - Do not delete or overwrite hand-authored skill directories.
 - Library Skills only removes managed symlinks. It should not remove copied or hand-authored skill directories.
