@@ -8,8 +8,8 @@ Discover and reconcile agent skills from installed library packages.
 
 **Usage**:
 
-```console
-$ library-skills [OPTIONS] COMMAND [ARGS]...
+```bash
+library-skills [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -36,8 +36,8 @@ Discover skills in installed packages.
 
 **Usage**:
 
-```console
-$ library-skills scan [OPTIONS]
+```bash
+library-skills scan [OPTIONS]
 ```
 
 **Options**:
@@ -52,8 +52,8 @@ List discovered or currently installed skills.
 
 **Usage**:
 
-```console
-$ library-skills list [OPTIONS]
+```bash
+library-skills list [OPTIONS]
 ```
 
 **Options**:
@@ -70,8 +70,8 @@ Install skills from installed packages.
 
 **Usage**:
 
-```console
-$ library-skills install [OPTIONS]
+```bash
+library-skills install [OPTIONS]
 ```
 
 **Options**:
@@ -89,8 +89,8 @@ Remove installed symlinked skills.
 
 **Usage**:
 
-```console
-$ library-skills remove [OPTIONS] [SKILL_NAMES]...
+```bash
+library-skills remove [OPTIONS] [SKILL_NAMES]...
 ```
 
 **Arguments**:
