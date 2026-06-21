@@ -5,13 +5,10 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from rich.console import Console
-from rich.table import Table
-from rich.theme import Theme
 from rich_toolkit import RichToolkit
 from rich_toolkit.menu import Menu, Option
-from rich_toolkit.styles import MinimalStyle
 
+from . import ui
 from .deps import (
     get_node_workspace_top_level_deps,
     get_top_level_deps,
@@ -56,25 +53,7 @@ from .workspace import (
     workspace_dependency_files,
 )
 
-RICH_THEME = {
-    "active": "green",
-    "action.install": "bold green",
-    "action.remove": "bold red",
-    "action.repair": "bold blue",
-    "cancelled": "red italic",
-    "error": "red",
-    "placeholder": "grey62",
-    "placeholder.cancelled": "indian_red strike",
-    "progress": "on green",
-    "result": "white",
-    "selected": "green",
-    "tag": "bold",
-    "tag.title": "bold",
-    "text": "white",
-    "title.cancelled": "white",
-    "title.error": "white",
-}
-console = Console(theme=Theme(RICH_THEME))
+console = ui.console
 
 app = typer.Typer(
     name="library-skills",
@@ -109,9 +88,7 @@ class InstalledStatus:
 
 
 def _get_rich_toolkit() -> RichToolkit:
-    style = MinimalStyle(theme=RICH_THEME)
-    style.console = console
-    return RichToolkit(style=style)
+    return ui.get_toolkit(console=console)
 
 
 def _get_project_context(cwd: Path | None = None) -> ProjectContext:
@@ -179,8 +156,7 @@ def _scan_context(context: ProjectContext) -> ScanResult:
 
 
 def _print_warnings(warnings: list[str]) -> None:
-    for warning in warnings:
-        console.print(f"[error]Warning:[/] {warning}")
+    ui.print_warnings(warnings, console=console)
 
 
 def _display_path(path: Path | None, project_root: Path) -> str:
@@ -194,53 +170,64 @@ def _display_path(path: Path | None, project_root: Path) -> str:
 
 
 def _print_context(context: ProjectContext) -> None:
-    console.print(f"Project root: {context.project_root}")
+    rows = [("Project root", str(context.project_root))]
     if context.workspace is not None:
-        console.print(f"Workspace root: {context.workspace.root}")
+        rows.append(("Workspace root", str(context.workspace.root)))
         if context.workspace.current_member is not None:
-            console.print(f"Workspace member: {context.workspace.current_member}")
+            rows.append(("Workspace member", str(context.workspace.current_member)))
     elif context.node_workspace is not None:
-        console.print(f"Workspace root: {context.node_workspace.root}")
+        rows.append(("Workspace root", str(context.node_workspace.root)))
         if context.node_workspace.current_member is not None:
-            console.print(f"Workspace member: {context.node_workspace.current_member}")
+            rows.append(
+                ("Workspace member", str(context.node_workspace.current_member))
+            )
     if context.target_environment:
-        console.print(
-            f"Target Python environment: "
-            f"{_display_path(context.target_environment, context.project_root)}"
+        rows.append(
+            (
+                "Target Python environment",
+                _display_path(context.target_environment, context.project_root),
+            )
         )
     else:
-        console.print("Target Python environment: not found")
+        rows.append(("Target Python environment", "not found"))
     if context.site_packages_dir:
-        console.print(
-            f"Site-packages: "
-            f"{_display_path(context.site_packages_dir, context.project_root)}"
+        rows.append(
+            (
+                "Site-packages",
+                _display_path(context.site_packages_dir, context.project_root),
+            )
         )
     if context.node_modules_dir:
-        console.print(
-            f"node_modules: "
-            f"{_display_path(context.node_modules_dir, context.project_root)}"
+        rows.append(
+            (
+                "node_modules",
+                _display_path(context.node_modules_dir, context.project_root),
+            )
         )
+    ui.print_title("context", console=console)
+    ui.print_table(ui.context_table(rows), console=console)
 
 
 def _print_skills_table(skills: list[Skill]) -> None:
     """Print a formatted table of discovered skills."""
     if not skills:
-        console.print("No skills found in installed packages.")
+        ui.print_message("No skills found in installed packages.", console=console)
         return
 
-    table = Table(show_header=True, header_style="bold", box=None)
-    table.add_column("Skill", style="bold")
-    table.add_column("Package")
-    table.add_column("Version")
-    table.add_column("Description")
-    for skill in skills:
-        table.add_row(
-            skill.name,
-            skill.package_name,
-            skill.package_version,
-            skill.description,
-        )
-    console.print(table)
+    ui.print_table(
+        ui.skills_table(
+            [
+                (
+                    skill.name,
+                    skill.package_name,
+                    skill.package_version,
+                    skill.description,
+                )
+                for skill in skills
+            ]
+        ),
+        console=console,
+    )
 
 
 def _top_level_skills(
@@ -321,13 +308,7 @@ def _workspace_root(context: ProjectContext) -> Path | str:
 
 
 def _print_action_header(action: str) -> None:
-    labels = {
-        "install": ("action.install", "Install new skills"),
-        "repair": ("action.repair", "Repair installed skills"),
-        "remove": ("action.remove", "Remove stale skills"),
-    }
-    style, label = labels[action]
-    console.print(f"[{style}]{label}[/]")
+    ui.print_action_header(action, console=console)
 
 
 def _select_skills_interactive(skills: list[Skill]) -> list[Skill]:
@@ -432,8 +413,9 @@ def _filter_installable_skills(
 ) -> list[Skill]:
     collisions = _find_collisions(skills)
     if collisions:
-        console.print(
-            "[error]Skipping colliding skill names:[/] " + ", ".join(sorted(collisions))
+        ui.print_warning(
+            "Skipping colliding skill names: " + ", ".join(sorted(collisions)),
+            console=console,
         )
 
     installable = [skill for skill in skills if skill.name not in collisions]
@@ -516,37 +498,39 @@ def _installed_statuses(
 
 
 def _print_status_table(statuses: list[InstalledStatus], project_root: Path) -> None:
-    table = Table(show_header=True, header_style="bold", box=None)
-    table.add_column("Target")
-    table.add_column("Skill", style="bold")
-    table.add_column("Status")
-    table.add_column("Path")
-    table.add_column("Source")
-    for status in statuses:
-        table.add_row(
-            status.target.name,
-            status.name,
-            status.status,
-            _display_path(status.path, project_root),
-            _display_path(status.target_path, project_root),
-        )
-    console.print(table)
+    ui.print_table(
+        ui.status_table(
+            [
+                (
+                    status.target.name,
+                    status.name,
+                    status.status,
+                    _display_path(status.path, project_root),
+                    _display_path(status.target_path, project_root),
+                )
+                for status in statuses
+            ]
+        ),
+        console=console,
+    )
 
 
 def _print_tool_skill_status_table(
     statuses: list[ToolSkillStatus], project_root: Path
 ) -> None:
-    table = Table(show_header=True, header_style="bold", box=None)
-    table.add_column("Target")
-    table.add_column("Status")
-    table.add_column("Path")
-    for status in statuses:
-        table.add_row(
-            status.target.name,
-            status.status,
-            _display_path(status.path, project_root),
-        )
-    console.print(table)
+    ui.print_table(
+        ui.tool_skill_status_table(
+            [
+                (
+                    status.target.name,
+                    status.status,
+                    _display_path(status.path, project_root),
+                )
+                for status in statuses
+            ]
+        ),
+        console=console,
+    )
 
 
 def _print_installed_skills_table(
@@ -554,7 +538,7 @@ def _print_installed_skills_table(
 ) -> None:
     installed = [status for status in statuses if status.type != "missing"]
     if not installed:
-        console.print("No skills installed.")
+        ui.print_message("No skills installed.", console=console)
         return
     _print_status_table(installed, project_root)
 
@@ -652,9 +636,12 @@ def _repair_selected(*, statuses: list[InstalledStatus], project_root: Path) -> 
         if status.skill is None:
             continue
         install_skill(status.skill, status.target.path)
-        console.print(
-            f"Repaired: [bold]{status.name}[/bold] ({status.target.name}) -> "
-            f"{_display_path(status.path, project_root)}"
+        ui.print_result(
+            "Repaired",
+            status.name,
+            status.target.name,
+            _display_path(status.path, project_root),
+            console=console,
         )
         repaired_count += 1
     return repaired_count
@@ -664,14 +651,18 @@ def _remove_selected(*, statuses: list[InstalledStatus], project_root: Path) -> 
     removed_count = 0
     for status in statuses:
         if uninstall_skill(status.name, status.target.path):
-            console.print(
-                f"Removed {status.status} symlink: [bold]{status.name}[/bold] "
-                f"({status.target.name}) -> {_display_path(status.path, project_root)}"
+            ui.print_result(
+                f"Removed {status.status} symlink",
+                status.name,
+                status.target.name,
+                _display_path(status.path, project_root),
+                console=console,
             )
             removed_count += 1
         else:
-            console.print(
-                f"Not found: [bold]{status.name}[/bold] ({status.target.name})"
+            ui.print_message(
+                f"Not found: [bold]{status.name}[/bold] ({status.target.name})",
+                console=console,
             )
     return removed_count
 
@@ -689,19 +680,23 @@ def _install_selected(
             try:
                 dest = install_skill(skill, target.path, copy=copy)
             except InstallError as e:
-                console.print(f"[error]Skipped {skill.name}:[/] {e}")
+                ui.print_skipped(skill.name, str(e), console=console)
                 continue
-            method = "Copied" if copy else "Symlinked"
-            console.print(
-                f"{method}: [bold]{skill.name}[/bold] ({skill.package_name}) -> "
-                f"{_display_path(dest, project_root)}"
+            action = "Copied" if copy else "Installed"
+            ui.print_result(
+                action,
+                skill.name,
+                skill.package_name,
+                _display_path(dest, project_root),
+                console=console,
             )
             installed_count += 1
     if installed_count and not copy:
-        console.print(
-            "[dim]Tip: These relative symlinks can be committed to Git when your "
-            "project uses stable repo-local installs. They resolve after "
-            "dependencies are installed.[/dim]"
+        ui.print_hint(
+            "These relative symlinks can be committed to Git when your project "
+            "uses stable repo-local installs. They resolve after dependencies "
+            "are installed.",
+            console=console,
         )
     return installed_count
 
@@ -726,12 +721,15 @@ def _sync_tool_skill(
         try:
             install_tool_skill(status.target.path)
         except ToolSkillError as e:
-            console.print(f"[error]Skipped tool skill:[/] {e}")
+            ui.print_skipped("tool skill", str(e), console=console)
             failed = failed or explicit
             continue
-        console.print(
-            f"Copied: [bold]library-skills[/bold] ({status.target.name}) -> "
-            f"{_display_path(status.path, project_root)}"
+        ui.print_result(
+            "Copied",
+            "library-skills",
+            status.target.name,
+            _display_path(status.path, project_root),
+            console=console,
         )
         changed_count += 1
     return changed_count, failed
@@ -764,10 +762,10 @@ def _sync(
     )
 
     _print_context(context)
-    console.print()
+    ui.print_line(console=console)
     _print_warnings(result.warnings)
     if result.warnings:
-        console.print()
+        ui.print_line(console=console)
 
     collisions = _find_collisions(result.skills)
     candidate_skills = _top_level_skills(
@@ -787,9 +785,10 @@ def _sync(
     ]
 
     if visible_statuses:
+        ui.print_title("status", console=console)
         _print_status_table(visible_statuses, context.project_root)
     else:
-        console.print("No installed or discovered skills found.")
+        ui.print_message("No installed or discovered skills found.", console=console)
 
     drift = [
         status
@@ -798,7 +797,7 @@ def _sync(
     ]
     if check:
         if tool_skill:
-            console.print()
+            ui.print_line(console=console)
             _, tool_failed = _sync_tool_skill(
                 targets=get_target_dirs(
                     context.project_root, include_claude=include_claude
@@ -816,10 +815,13 @@ def _sync(
     repairable = _repairable_statuses(drift)
     removable = _removable_statuses(drift)
     if drift:
-        console.print()
-        console.print("Some installed skills need attention.")
-        console.print("Select the skills to install, repair, or remove.")
-        console.print("Only managed symlinks will be changed.")
+        ui.print_line(console=console)
+        ui.print_title("attention", console=console)
+        ui.print_warning("Some installed skills need attention.", console=console)
+        ui.print_message(
+            "Select the skills to install, repair, or remove.", console=console
+        )
+        ui.print_hint("Only managed symlinks will be changed.", console=console)
 
     selected_repairs = (
         repairable if yes else _select_statuses_interactive(repairable, action="repair")
@@ -828,10 +830,10 @@ def _sync(
         removable if yes else _select_statuses_interactive(removable, action="remove")
     )
     if selected_repairs:
-        console.print()
+        ui.print_line(console=console)
         _repair_selected(statuses=selected_repairs, project_root=context.project_root)
     if selected_removals:
-        console.print()
+        ui.print_line(console=console)
         _remove_selected(statuses=selected_removals, project_root=context.project_root)
 
     selected = _filter_installable_skills(
@@ -862,19 +864,19 @@ def _sync(
             interactive=not yes and not include_claude,
         )
         if not targets:
-            console.print("No installation targets selected.")
+            ui.print_message("No installation targets selected.", console=console)
             return
-        console.print()
+        ui.print_line(console=console)
         installed_count = _install_selected(
             skills=selected,
             targets=targets,
             project_root=context.project_root,
             copy=copy,
         )
-        console.print()
-        console.print(f"Installed {installed_count} skill target(s).")
+        ui.print_line(console=console)
+        ui.print_summary({"installed skill targets": installed_count}, console=console)
     if tool_skill is True:
-        console.print()
+        ui.print_line(console=console)
         tool_skill_changes, tool_failed = _sync_tool_skill(
             targets=targets,
             project_root=context.project_root,
@@ -885,7 +887,7 @@ def _sync(
             raise typer.Exit(1)
     elif tool_skill is None and not yes and _tool_skill_is_missing(targets):
         if _select_tool_skill_interactive():
-            console.print()
+            ui.print_line(console=console)
             tool_skill_changes, _ = _sync_tool_skill(
                 targets=targets,
                 project_root=context.project_root,
@@ -898,7 +900,7 @@ def _sync(
         and not selected
         and not tool_skill_changes
     ):
-        console.print("No changes needed.")
+        ui.print_summary({}, console=console)
 
 
 @app.callback()
@@ -973,10 +975,10 @@ def scan(
         return
 
     _print_context(context)
-    console.print()
+    ui.print_line(console=console)
     _print_warnings(result.warnings)
     if result.warnings:
-        console.print()
+        ui.print_line(console=console)
     _print_skills_table(skills)
 
 
@@ -1083,7 +1085,7 @@ def install(
         selected = _select_skills_interactive(skills)
 
     if not selected:
-        console.print("No skills selected.")
+        ui.print_message("No skills selected.", console=console)
         return
 
     targets = _select_install_targets(
@@ -1092,14 +1094,14 @@ def install(
         interactive=not yes and not include_claude,
     )
     if not targets:
-        console.print("No installation targets selected.")
+        ui.print_message("No installation targets selected.", console=console)
         return
 
     installed_count = _install_selected(
         skills=selected, targets=targets, project_root=context.project_root, copy=copy
     )
-    console.print()
-    console.print(f"Installed {installed_count} skill target(s).")
+    ui.print_line(console=console)
+    ui.print_summary({"installed skill targets": installed_count}, console=console)
 
 
 @app.command()
@@ -1138,15 +1140,22 @@ def remove(
         selected_statuses = _select_installed_skills_interactive(statuses)
 
     if not selected_statuses:
-        console.print("No skills selected.")
+        ui.print_message("No skills selected.", console=console)
         return
 
     for status in selected_statuses:
         if uninstall_skill(status.name, status.target.path):
-            console.print(f"Removed: [bold]{status.name}[/bold] ({status.target.name})")
+            ui.print_result(
+                "Removed",
+                status.name,
+                status.target.name,
+                _display_path(status.path, context.project_root),
+                console=console,
+            )
         else:
-            console.print(
-                f"Not found: [bold]{status.name}[/bold] ({status.target.name})"
+            ui.print_message(
+                f"Not found: [bold]{status.name}[/bold] ({status.target.name})",
+                console=console,
             )
 
 

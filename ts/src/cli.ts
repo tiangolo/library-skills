@@ -40,6 +40,7 @@ import {
 	type ScanResult,
 	type Skill,
 } from "./scanner.js";
+import * as output from "./output.js";
 import {
 	findNodeWorkspace,
 	findUvWorkspace,
@@ -109,20 +110,8 @@ interface ScanOptions {
 	json?: boolean;
 }
 
-const ACTION_COLORS = {
-	install: "\u001b[1;32m",
-	repair: "\u001b[1;34m",
-	remove: "\u001b[1;31m",
-	reset: "\u001b[0m",
-} as const;
-
 function printActionHeader(action: "install" | "repair" | "remove"): void {
-	const labels = {
-		install: "Install new skills",
-		repair: "Repair installed skills",
-		remove: "Remove stale skills",
-	};
-	console.log(`${ACTION_COLORS[action]}${labels[action]}${ACTION_COLORS.reset}`);
+	output.printActionHeader(action);
 }
 
 function getProjectContext(cwd = process.cwd()): ProjectContext {
@@ -230,7 +219,7 @@ function getWorkspaceTopLevelDepsForContext(
 
 function printWarnings(warnings: string[]): void {
 	for (const warning of warnings) {
-		console.log(`Warning: ${warning}`);
+		output.printWarning(warning);
 	}
 }
 
@@ -249,46 +238,55 @@ function displayPath(path: string | null | undefined, projectRoot: string): stri
 }
 
 function printContext(context: ProjectContext): void {
-	console.log(`Project root: ${context.projectRoot}`);
+	output.printTitle("context");
+	const rows: Array<Record<string, string>> = [
+		{ Field: "Project root", Value: context.projectRoot },
+	];
 	if (context.workspace !== null) {
-		console.log(`Workspace root: ${context.workspace.root}`);
+		rows.push({ Field: "Workspace root", Value: context.workspace.root });
 		if (context.workspace.currentMember !== null) {
-			console.log(`Workspace member: ${context.workspace.currentMember}`);
+			rows.push({
+				Field: "Workspace member",
+				Value: context.workspace.currentMember,
+			});
 		}
 	} else if (context.nodeWorkspace !== null) {
-		console.log(`Workspace root: ${context.nodeWorkspace.root}`);
+		rows.push({ Field: "Workspace root", Value: context.nodeWorkspace.root });
 		if (context.nodeWorkspace.currentMember !== null) {
-			console.log(`Workspace member: ${context.nodeWorkspace.currentMember}`);
+			rows.push({
+				Field: "Workspace member",
+				Value: context.nodeWorkspace.currentMember,
+			});
 		}
 	}
-	console.log(
-		`Target Python environment: ${
+	rows.push({
+		Field: "Target Python environment",
+		Value:
 			context.targetEnvironment
 				? displayPath(context.targetEnvironment, context.projectRoot)
-				: "not found"
-		}`,
-	);
+				: "not found",
+	});
 	if (context.sitePackagesDir) {
-		console.log(
-			`Site-packages: ${displayPath(
-				context.sitePackagesDir,
-				context.projectRoot,
-			)}`,
-		);
+		rows.push({
+			Field: "Site-packages",
+			Value: displayPath(context.sitePackagesDir, context.projectRoot),
+		});
 	}
 	if (context.nodeModulesDir) {
-		console.log(
-			`node_modules: ${displayPath(context.nodeModulesDir, context.projectRoot)}`,
-		);
+		rows.push({
+			Field: "node_modules",
+			Value: displayPath(context.nodeModulesDir, context.projectRoot),
+		});
 	}
+	output.printTable(["Field", "Value"], rows);
 }
 
 function printSkills(skills: Skill[]): void {
 	if (skills.length === 0) {
-		console.log("No skills found in installed packages.");
+		output.printMessage("No skills found in installed packages.");
 		return;
 	}
-	printTable(
+	output.printTable(
 		["Skill", "Package", "Version", "Description"],
 		skills.map((skill) => ({
 			Skill: skill.name,
@@ -329,25 +327,6 @@ function scanJsonPayload({
 	};
 }
 
-function printTable(
-	columns: string[],
-	rows: Array<Record<string, string>>,
-): void {
-	const widths = columns.map((column) =>
-		Math.max(column.length, ...rows.map((row) => row[column].length)),
-	);
-	const formatRow = (row: Record<string, string>) =>
-		columns
-			.map((column, index) => row[column].padEnd(widths[index]))
-			.join("  ");
-
-	console.log(formatRow(Object.fromEntries(columns.map((column) => [column, column]))));
-	console.log(widths.map((width) => "-".repeat(width)).join("  "));
-	for (const row of rows) {
-		console.log(formatRow(row));
-	}
-}
-
 function findCollisions(skills: Skill[]): Set<string> {
 	const counts = new Map<string, number>();
 	for (const skill of skills) {
@@ -385,7 +364,7 @@ function filterInstallableSkills({
 }): Skill[] {
 	const collisions = findCollisions(skills);
 	if (collisions.size > 0) {
-		console.log(
+		output.printWarning(
 			`Skipping colliding skill names: ${[...collisions].sort().join(", ")}`,
 		);
 	}
@@ -480,12 +459,12 @@ function installedStatuses({
 }
 
 function printStatusTable(statuses: InstalledStatus[], projectRoot: string): void {
-	printTable(
+	output.printTable(
 		["Target", "Skill", "Status", "Path", "Source"],
 		statuses.map((status) => ({
 			Target: status.target.name,
 			Skill: status.name,
-			Status: status.status,
+			Status: output.styledStatus(status.status),
 			Path: displayPath(status.path, projectRoot),
 			Source: displayPath(status.targetPath, projectRoot),
 		})),
@@ -496,11 +475,11 @@ function printToolSkillStatusTable(
 	statuses: ToolSkillStatus[],
 	projectRoot: string,
 ): void {
-	printTable(
+	output.printTable(
 		["Target", "Status", "Path"],
 		statuses.map((status) => ({
 			Target: status.target.name,
-			Status: status.status,
+			Status: output.styledStatus(status.status),
 			Path: displayPath(status.path, projectRoot),
 		})),
 	);
@@ -512,7 +491,7 @@ function printInstalledSkillsTable(
 ): void {
 	const installed = statuses.filter((status) => status.type !== "missing");
 	if (installed.length === 0) {
-		console.log("No skills installed.");
+		output.printMessage("No skills installed.");
 		return;
 	}
 	printStatusTable(installed, projectRoot);
@@ -669,12 +648,12 @@ function repairSelected({
 	let repairedCount = 0;
 	for (const status of statuses) {
 		installSkill(status.skill as Skill, status.target.path);
-		console.log(
-			`Repaired: ${status.name} (${status.target.name}) -> ${displayPath(
-				status.path,
-				projectRoot,
-			)}`,
-		);
+		output.printResult({
+			action: "Repaired",
+			name: status.name,
+			target: status.target.name,
+			path: displayPath(status.path, projectRoot),
+		});
 		repairedCount++;
 	}
 	return repairedCount;
@@ -690,15 +669,15 @@ function removeSelected({
 	let removedCount = 0;
 	for (const status of statuses) {
 		if (uninstallSkill(status.name, status.target.path)) {
-			console.log(
-				`Removed ${status.status} symlink: ${status.name} (${status.target.name}) -> ${displayPath(
-					status.path,
-					projectRoot,
-				)}`,
-			);
+			output.printResult({
+				action: `Removed ${status.status} symlink`,
+				name: status.name,
+				target: status.target.name,
+				path: displayPath(status.path, projectRoot),
+			});
 			removedCount++;
 		} else {
-			console.log(`Not found: ${status.name} (${status.target.name})`);
+			output.printMessage(`Not found: ${status.name} (${status.target.name})`);
 		}
 	}
 	return removedCount;
@@ -720,17 +699,16 @@ function installSelected({
 		for (const skill of skills) {
 			try {
 				const dest = installSkill(skill, target.path, { copy });
-				const method = copy ? "Copied" : "Symlinked";
-				console.log(
-					`${method}: ${skill.name} (${skill.packageName}) -> ${displayPath(
-						dest,
-						projectRoot,
-					)}`,
-				);
+				output.printResult({
+					action: copy ? "Copied" : "Installed",
+					name: skill.name,
+					target: skill.packageName,
+					path: displayPath(dest, projectRoot),
+				});
 				installedCount++;
 			} catch (error) {
 				if (error instanceof InstallError) {
-					console.log(`Skipped ${skill.name}: ${error.message}`);
+					output.printSkipped(skill.name, error.message);
 				} else {
 					throw error;
 				}
@@ -738,8 +716,8 @@ function installSelected({
 		}
 	}
 	if (installedCount > 0 && !copy) {
-		console.log(
-			"Tip: These relative symlinks can be committed to Git when your project uses stable repo-local installs. They resolve after dependencies are installed.",
+		output.printHint(
+			"These relative symlinks can be committed to Git when your project uses stable repo-local installs. They resolve after dependencies are installed.",
 		);
 	}
 	return installedCount;
@@ -793,19 +771,19 @@ function syncToolSkill({
 			});
 		} catch (error) {
 			if (error instanceof ToolSkillError) {
-				console.log(`Skipped tool skill: ${error.message}`);
+				output.printSkipped("tool skill", error.message);
 				failed ||= explicit;
 				continue;
 			}
 			/* v8 ignore next -- defensive rethrow for unexpected installer failures. */
 			throw error;
 		}
-		console.log(
-			`Copied: library-skills (${status.target.name}) -> ${displayPath(
-				status.path,
-				projectRoot,
-			)}`,
-		);
+		output.printResult({
+			action: "Copied",
+			name: "library-skills",
+			target: status.target.name,
+			path: displayPath(status.path, projectRoot),
+		});
 		changedCount++;
 	}
 	return { changedCount, failed };
@@ -829,10 +807,10 @@ async function sync(options: GlobalOptions): Promise<void> {
 	});
 
 	printContext(context);
-	console.log();
+	output.printLine();
 	printWarnings(result.warnings);
 	if (result.warnings.length > 0) {
-		console.log();
+		output.printLine();
 	}
 
 	const selectedNames = options.skill ?? [];
@@ -854,9 +832,10 @@ async function sync(options: GlobalOptions): Promise<void> {
 	);
 
 	if (visibleStatuses.length > 0) {
+		output.printTitle("status");
 		printStatusTable(visibleStatuses, context.projectRoot);
 	} else {
-		console.log("No installed or discovered skills found.");
+		output.printMessage("No installed or discovered skills found.");
 	}
 
 	const drift = statuses.filter((status) =>
@@ -864,7 +843,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 	);
 	if (options.check) {
 		if (options.toolSkill) {
-			console.log();
+			output.printLine();
 			const toolResult = syncToolSkill({
 				targets: getTargetDirs(context.projectRoot, {
 					includeClaude: options.claude,
@@ -886,10 +865,11 @@ async function sync(options: GlobalOptions): Promise<void> {
 	const repairable = repairableStatuses(drift);
 	const removable = removableStatuses(drift);
 	if (drift.length > 0) {
-		console.log();
-		console.log("Some installed skills need attention.");
-		console.log("Select the skills to install, repair, or remove.");
-		console.log("Only managed symlinks will be changed.");
+		output.printLine();
+		output.printTitle("attention");
+		output.printWarning("Some installed skills need attention.");
+		output.printMessage("Select the skills to install, repair, or remove.");
+		output.printHint("Only managed symlinks will be changed.");
 	}
 	const selectedRepairs = options.yes
 		? repairable
@@ -898,11 +878,11 @@ async function sync(options: GlobalOptions): Promise<void> {
 		? removable
 		: await selectStatusesInteractive(removable, "remove");
 	if (selectedRepairs.length > 0) {
-		console.log();
+		output.printLine();
 		repairSelected({ statuses: selectedRepairs, projectRoot: context.projectRoot });
 	}
 	if (selectedRemovals.length > 0) {
-		console.log();
+		output.printLine();
 		removeSelected({ statuses: selectedRemovals, projectRoot: context.projectRoot });
 	}
 
@@ -935,21 +915,21 @@ async function sync(options: GlobalOptions): Promise<void> {
 			interactive: !options.yes && !options.claude,
 		});
 		if (targets.length === 0) {
-			console.log("No installation targets selected.");
+			output.printMessage("No installation targets selected.");
 			return;
 		}
-		console.log();
+		output.printLine();
 		const installedCount = installSelected({
 			skills: selected,
 			targets,
 			projectRoot: context.projectRoot,
 			copy: options.copy,
 		});
-		console.log();
-		console.log(`Installed ${installedCount} skill target(s).`);
+		output.printLine();
+		output.printSummary({ "installed skill targets": installedCount });
 	}
 	if (options.toolSkill === true) {
-		console.log();
+		output.printLine();
 		const toolResult = syncToolSkill({
 			targets,
 			projectRoot: context.projectRoot,
@@ -967,7 +947,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 		toolSkillIsMissing(targets) &&
 		(await selectToolSkillInteractive())
 	) {
-		console.log();
+		output.printLine();
 		const toolResult = syncToolSkill({
 			targets,
 			projectRoot: context.projectRoot,
@@ -983,7 +963,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 		toolSkillChanges === 0 &&
 		!toolSkillFailed
 	) {
-		console.log("No changes needed.");
+		output.printSummary({});
 	}
 }
 
@@ -1003,10 +983,10 @@ function scanCommand(options: ScanOptions): void {
 	}
 
 	printContext(context);
-	console.log();
+	output.printLine();
 	printWarnings(result.warnings);
 	if (result.warnings.length > 0) {
-		console.log();
+		output.printLine();
 	}
 	printSkills(skills);
 }
@@ -1076,7 +1056,7 @@ async function installCommand(options: InstallOptions): Promise<void> {
 	}
 
 	if (selected.length === 0) {
-		console.log("No skills selected.");
+		output.printMessage("No skills selected.");
 		return;
 	}
 
@@ -1086,7 +1066,7 @@ async function installCommand(options: InstallOptions): Promise<void> {
 		interactive: !options.yes && !options.claude,
 	});
 	if (targets.length === 0) {
-		console.log("No installation targets selected.");
+		output.printMessage("No installation targets selected.");
 		return;
 	}
 
@@ -1096,8 +1076,8 @@ async function installCommand(options: InstallOptions): Promise<void> {
 		projectRoot: context.projectRoot,
 		copy: options.copy,
 	});
-	console.log();
-	console.log(`Installed ${installedCount} skill target(s).`);
+	output.printLine();
+	output.printSummary({ "installed skill targets": installedCount });
 }
 
 async function removeCommand(
@@ -1122,15 +1102,20 @@ async function removeCommand(
 	}
 
 	if (selectedStatuses.length === 0) {
-		console.log("No skills selected.");
+		output.printMessage("No skills selected.");
 		return;
 	}
 
 	for (const status of selectedStatuses) {
 		if (uninstallSkill(status.name, status.target.path)) {
-			console.log(`Removed: ${status.name} (${status.target.name})`);
+			output.printResult({
+				action: "Removed",
+				name: status.name,
+				target: status.target.name,
+				path: displayPath(status.path, context.projectRoot),
+			});
 		} else {
-			console.log(`Not found: ${status.name} (${status.target.name})`);
+			output.printMessage(`Not found: ${status.name} (${status.target.name})`);
 		}
 	}
 }
@@ -1271,5 +1256,6 @@ export const testing = {
 	sync,
 	topLevelSkills,
 	displayPath,
-	printTable,
+	printTable: output.printTable,
+	printSummary: output.printSummary,
 };
