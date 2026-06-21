@@ -1675,6 +1675,18 @@ test("CLI install command covers interactive, copy, selected, and skipped instal
   await createProgram().parseAsync(["node", "library-skills", "install"]);
   expect(log).toHaveBeenCalledWith("No skills selected.");
 
+  cliTesting.installSelected({
+    skills: [
+      makeSkill({
+        name: "direct-skill",
+        skillDir: writeSkill(join(project, "direct-source"), "direct-skill", "Direct skill."),
+      }),
+    ],
+    targets: [{ name: "universal", path: join(project, "direct-skills") }],
+    projectRoot: project,
+  });
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("can be committed to Git"));
+
   await createProgram().parseAsync([
     "node",
     "library-skills",

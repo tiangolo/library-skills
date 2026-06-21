@@ -737,6 +737,11 @@ function installSelected({
 			}
 		}
 	}
+	if (installedCount > 0 && !copy) {
+		console.log(
+			"Tip: These relative symlinks can be committed to Git when your project uses stable repo-local installs. They resolve after dependencies are installed.",
+		);
+	}
 	return installedCount;
 }
 

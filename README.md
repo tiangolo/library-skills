@@ -55,6 +55,8 @@ It will only remove managed symlinks, not hand-authored skill directories.
 
 Then it will ask where to install new skills and add them as symbolic links, so when you update the libraries, the skills are updated too.
 
+The symlinks are relative, so projects with stable repo-local installs can commit them to Git. They may be broken before dependencies are installed, then resolve after setup. On Windows, real symlink checkout can require Developer Mode or elevated permissions; use `--copy` if symlinks are not practical.
+
 By default it selects `.agents/skills`, the agent-neutral target. If the project already has a `.claude/` directory, it selects `.claude/skills` too.
 
 /// tip

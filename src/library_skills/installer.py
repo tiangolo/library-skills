@@ -149,9 +149,9 @@ def install_skill(
     return dest
 
 
-def _get_symlink_target(*, source: Path, dest: Path) -> Path:
+def _get_symlink_target(*, source: Path, dest: Path) -> Path | str:
     try:
-        return Path(os.path.relpath(source, start=dest.parent.resolve()))
+        return os.path.relpath(source, start=dest.parent.resolve())
     except ValueError:
         return source
 

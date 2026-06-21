@@ -1416,6 +1416,7 @@ def test_default_command_interactive_selection_installs_selected_skill(
     tool_skill = project / ".agents" / "skills" / TOOL_SKILL_NAME
     assert result.exit_code == 0
     assert "Installed 1 skill target(s)." in result.output
+    assert "can be committed to Git" in result.output
     assert installed.is_symlink()
     assert installed.resolve() == skill_dir.resolve()
     assert tool_skill.joinpath("SKILL.md").is_file()
@@ -1449,6 +1450,7 @@ def test_default_command_copy_installs_selected_skill_as_directory(
     installed = project / ".agents" / "skills" / "demo-skill"
     assert result.exit_code == 0
     assert "Installed 1 skill target(s)." in result.output
+    assert "can be committed to Git" not in result.output
     assert installed.is_dir()
     assert not installed.is_symlink()
 

@@ -49,6 +49,14 @@ By default, it will create symbolic links, which means that if you update the li
 
 ///
 
+## Committing Installed Skills
+
+The installed skill symlinks are relative links. If your project uses stable, repo-local dependency installs, such as a project `.venv` or `node_modules`, you can commit those symlinks to Git so every user and agent sees the same selected skills.
+
+The symlinks can be broken before dependencies are installed. That's expected: after users install the project dependencies, the links resolve to the skills included in those packages.
+
+On Windows, committed symlinks work only when Git checks out real symlinks and Windows allows symlink creation, for example with Developer Mode enabled or elevated permissions. If symlinks are not practical in your environment, use `--copy` instead.
+
 ## Repairing Installed Skills
 
 Run the default command again to reconcile installed skills with the libraries currently installed in your project:
