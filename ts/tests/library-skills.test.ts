@@ -126,6 +126,37 @@ test("scans Python distribution RECORD entries for valid skills", () => {
   ]);
 });
 
+test("scanner parses folded skill descriptions", () => {
+  const sitePackages = tempDir();
+  writeDistribution({
+    sitePackages,
+    distInfoName: "example_pkg-1.0.0.dist-info",
+    packageName: "Example-Pkg",
+    version: "1.0.0",
+    records: ["example_pkg/.agents/skills/hello/SKILL.md,,"],
+  });
+  writeRawSkill(
+    join(sitePackages, "example_pkg", ".agents", "skills", "hello"),
+    "---\n" +
+      "name: hello\n" +
+      "description: >\n" +
+      "  This is a very long\n" +
+      "  sentence that should be\n" +
+      "  parsed as a single line.\n" +
+      "---\n",
+  );
+
+  const result = scanPythonDistributions(sitePackages);
+
+  expect(result.warnings).toEqual([]);
+  expect(result.skills).toMatchObject([
+    {
+      name: "hello",
+      description: "This is a very long sentence that should be parsed as a single line.",
+    },
+  ]);
+});
+
 test("scans Node packages for valid skills", () => {
   const nodeModules = tempDir();
   writeNodePackageSkill({
@@ -401,6 +432,9 @@ test("scanner reports invalid skill frontmatter and metadata variants", () => {
       "pkg/.agents/skills/missing-description/SKILL.md,,",
       "pkg/.agents/skills/too-long/SKILL.md,,",
       "pkg/.agents/skills/quoted/SKILL.md,,",
+      "pkg/.agents/skills/empty-yaml/SKILL.md,,",
+      "pkg/.agents/skills/non-mapping/SKILL.md,,",
+      "pkg/.agents/skills/invalid-yaml/SKILL.md,,",
     ],
   });
 
@@ -432,7 +466,13 @@ test("scanner reports invalid skill frontmatter and metadata variants", () => {
   );
   writeRawSkill(
     join(sitePackages, "pkg", ".agents", "skills", "quoted"),
-    "---\n# comment\nnot metadata\nother: ignored\nname: 'quoted'\ndescription: \"Quoted metadata.\"\n---\n",
+    "---\n# comment\nother: ignored\nname: 'quoted'\ndescription: \"Quoted metadata.\"\n---\n",
+  );
+  writeRawSkill(join(sitePackages, "pkg", ".agents", "skills", "empty-yaml"), "---\n---\n");
+  writeRawSkill(join(sitePackages, "pkg", ".agents", "skills", "non-mapping"), "---\n[]\n---\n");
+  writeRawSkill(
+    join(sitePackages, "pkg", ".agents", "skills", "invalid-yaml"),
+    "---\nthis line has no separator\nname: invalid-yaml\ndescription: Invalid YAML.\n---\n",
   );
 
   const result = scanPythonDistributions(sitePackages);
@@ -441,6 +481,8 @@ test("scanner reports invalid skill frontmatter and metadata variants", () => {
   expect(result.warnings.join("\n")).toEqual(expect.stringContaining("could not read SKILL.md"));
   expect(result.warnings.join("\n")).toEqual(expect.stringContaining("missing YAML frontmatter"));
   expect(result.warnings.join("\n")).toEqual(expect.stringContaining("unterminated YAML frontmatter"));
+  expect(result.warnings.join("\n")).toEqual(expect.stringContaining("invalid YAML frontmatter"));
+  expect(result.warnings.join("\n")).toEqual(expect.stringContaining("YAML frontmatter must be a mapping"));
   expect(result.warnings.join("\n")).toEqual(expect.stringContaining("missing required 'name' field"));
   expect(result.warnings.join("\n")).toEqual(expect.stringContaining("must match parent directory"));
   expect(result.warnings.join("\n")).toEqual(

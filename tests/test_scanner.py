@@ -85,6 +85,36 @@ def test_scan_python_distributions_discovers_record_based_skills(tmp_path):
     assert skill.skill_dir == skill_md.parent
 
 
+def test_scan_python_distributions_parses_folded_skill_description(tmp_path):
+    site_packages = tmp_path / "site-packages"
+    package_root = site_packages / "demo_pkg"
+    skill_md = write_skill(package_root, "demo-skill")
+    skill_md.write_text(
+        "---\n"
+        "name: demo-skill\n"
+        "description: >\n"
+        "  This is a very long\n"
+        "  sentence that should be\n"
+        "  parsed as a single line.\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    write_dist_info(
+        site_packages,
+        "demo-pkg",
+        record_paths=[skill_md.relative_to(site_packages).as_posix()],
+    )
+
+    result = scan_python_distributions(site_packages)
+
+    assert result.warnings == []
+    assert len(result.skills) == 1
+    assert (
+        result.skills[0].description
+        == "This is a very long sentence that should be parsed as a single line."
+    )
+
+
 def test_scan_node_packages_discovers_package_skills(tmp_path):
     node_modules = tmp_path / "node_modules"
     skill_md = write_node_package(
@@ -318,8 +348,10 @@ def test_scan_python_distributions_ignores_empty_non_skill_and_duplicate_records
         (
             "---\nthis line has no separator\n"
             "name: demo-skill\ndescription: Demo skill.\n---\n",
-            "",
+            "invalid YAML frontmatter",
         ),
+        ("---\n---\n", "missing required 'name' field"),
+        ("---\n[]\n---\n", "YAML frontmatter must be a mapping"),
         (
             f"---\nname: demo-skill\ndescription: {'x' * 1025}\n---\n",
             "'description' field must be at most 1024 characters",

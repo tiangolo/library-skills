@@ -581,6 +581,7 @@ name = "library-skills"
 version = "0.0.17"
 source = { editable = "." }
 dependencies = [
+    { name = "pyyaml" },
     { name = "rich-toolkit" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typer" },
@@ -635,6 +636,7 @@ tests = [
 
 [package.metadata]
 requires-dist = [
+    { name = "pyyaml", specifier = ">=5.3.1" },
     { name = "rich-toolkit", specifier = ">=0.20.1" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.4.1" },
     { name = "typer", specifier = ">=0.24.2" },

@@ -25,6 +25,7 @@ classifiers = [
     "Topic :: Internet",
 ]
 dependencies = [
+    "pyyaml>=5.3.1",
     "rich-toolkit>=0.20.1",
     "tomli>=2.4.1 ; python_version < '3.11'",
     "typer>=0.24.2",

@@ -16,6 +16,7 @@ import {
 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "csv-parse/sync";
+import { parseDocument } from "yaml";
 
 export interface Skill {
 	name: string;
@@ -477,21 +478,23 @@ function parseSkillFrontmatter(
 	}
 
 	const metadata: Record<string, string> = {};
-	for (const line of text.slice(3, end).split(/\r?\n/)) {
-		const stripped = line.trim();
-		if (stripped === "" || stripped.startsWith("#")) {
-			continue;
-		}
-		const separator = stripped.indexOf(":");
-		if (separator === -1) {
-			continue;
-		}
-		const key = stripped.slice(0, separator).trim();
-		if (key === "name" || key === "description") {
-			metadata[key] = stripped
-				.slice(separator + 1)
-				.trim()
-				.replace(/^["']|["']$/g, "");
+	const document = parseDocument(text.slice(3, end));
+	if (document.errors.length > 0) {
+		return [{}, `invalid YAML frontmatter (${document.errors[0].message})`];
+	}
+
+	const parsed = document.toJSON();
+	if (parsed === null || parsed === undefined) {
+		return [metadata, null];
+	}
+	if (typeof parsed !== "object" || Array.isArray(parsed)) {
+		return [{}, "YAML frontmatter must be a mapping"];
+	}
+
+	for (const key of ["name", "description"]) {
+		const value = (parsed as Record<string, unknown>)[key];
+		if (typeof value === "string") {
+			metadata[key] = value.trim();
 		}
 	}
 
