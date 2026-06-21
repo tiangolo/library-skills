@@ -9,6 +9,7 @@
 
 ### Internal
 
+* ⬆ Bump vite from 8.0.14 to 8.0.16. PR [#108](https://github.com/tiangolo/library-skills/pull/108) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump pyjwt from 2.12.1 to 2.13.0. PR [#106](https://github.com/tiangolo/library-skills/pull/106) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump the github-actions group across 1 directory with 2 updates. PR [#104](https://github.com/tiangolo/library-skills/pull/104) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump cryptography from 47.0.0 to 48.0.1. PR [#107](https://github.com/tiangolo/library-skills/pull/107) by [@dependabot[bot]](https://github.com/apps/dependabot).
