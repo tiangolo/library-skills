@@ -169,6 +169,22 @@ def _display_path(path: Path | None, project_root: Path) -> str:
         return str(path)
 
 
+def _target_prompt_name(target: InstallTarget) -> str:
+    if target.name == "universal":
+        return "Agents (.agents/skills)"
+    if target.name == "claude-compatible":
+        return "Claude Code (.claude/skills)"
+    return target.name
+
+
+def _target_short_name(target: InstallTarget) -> str:
+    if target.name == "universal":
+        return "Agents"
+    if target.name == "claude-compatible":
+        return "Claude Code"
+    return target.name
+
+
 def _print_context(context: ProjectContext) -> None:
     rows = [("Project root", str(context.project_root))]
     if context.workspace is not None:
@@ -337,7 +353,7 @@ def _select_targets_interactive(
         options=[
             Option(
                 {
-                    "name": _display_path(target.path, project_root),
+                    "name": _target_prompt_name(target),
                     "value": target,
                 }
             )
@@ -555,7 +571,7 @@ def _select_installed_skills_interactive(
         options=[
             Option(
                 {
-                    "name": f"{status.name} [{status.target.name}]",
+                    "name": f"{status.name} [{_target_short_name(status.target)}]",
                     "value": status,
                 }
             )
@@ -616,7 +632,7 @@ def _select_statuses_interactive(
         options=[
             Option(
                 {
-                    "name": f"{status.name} [{status.target.name}]",
+                    "name": f"{status.name} [{_target_short_name(status.target)}]",
                     "value": status,
                 }
             )

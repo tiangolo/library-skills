@@ -1627,6 +1627,42 @@ test("CLI helpers filter skills and classify installed statuses", () => {
   expect(cliTesting.displayPath(join(tempDir(), "outside"), root)).toMatch(/outside$/);
   expect(cliTesting.displayPath(null, root)).toBe("");
   expect(
+    cliTesting.targetPromptName({
+      name: "universal",
+      path: join(root, ".agents", "skills"),
+    }),
+  ).toBe("Agents (.agents/skills)");
+  expect(
+    cliTesting.targetPromptName({
+      name: "claude-compatible",
+      path: join(root, ".claude", "skills"),
+    }),
+  ).toBe("Claude Code (.claude/skills)");
+  expect(
+    cliTesting.targetPromptName({
+      name: "custom",
+      path: join(root, "custom"),
+    }),
+  ).toBe("custom");
+  expect(
+    cliTesting.targetShortName({
+      name: "universal",
+      path: join(root, ".agents", "skills"),
+    }),
+  ).toBe("Agents");
+  expect(
+    cliTesting.targetShortName({
+      name: "claude-compatible",
+      path: join(root, ".claude", "skills"),
+    }),
+  ).toBe("Claude Code");
+  expect(
+    cliTesting.targetShortName({
+      name: "custom",
+      path: join(root, "custom"),
+    }),
+  ).toBe("custom");
+  expect(
     cliTesting
       .repairableStatuses(statuses)
       .map((status) => status.name)
@@ -1664,6 +1700,7 @@ test("CLI reconcile helpers cover interactive selection and missing removals", a
   };
   vi.mocked(checkbox).mockImplementationOnce(async (prompt) => {
     expect(prompt.message).toContain("repair");
+    expect(prompt.choices[0].name).toBe("repair [Agents]");
     return [prompt.choices[0].value];
   });
   const { log } = mockConsole();
@@ -1875,6 +1912,10 @@ test("CLI interactive install can choose Claude targets", async () => {
   vi.mocked(checkbox)
     .mockImplementationOnce(async (prompt) => [prompt.choices[0].value])
     .mockImplementationOnce(async (prompt) => {
+      expect(prompt.choices.map((choice) => choice.name)).toEqual([
+        "Agents (.agents/skills)",
+        "Claude Code (.claude/skills)",
+      ]);
       expect(prompt.validate?.([])).toBe(
         "Please select at least one installation target.",
       );
@@ -1927,6 +1968,7 @@ test("CLI remove command covers selected, interactive, and empty removals", asyn
   expect(log).toHaveBeenCalledWith(expect.stringContaining("top-skill (universal)"));
 
   vi.mocked(checkbox).mockImplementationOnce(async (prompt) => {
+    expect(prompt.choices[0].name).toBe("transitive-skill [Agents]");
     const choice = prompt.choices[0].value;
     unlinkSync(choice.path);
     return [choice];
