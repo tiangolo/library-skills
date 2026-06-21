@@ -4,6 +4,7 @@
 
 ### Docs
 
+* 📝 Update docs badges: remove Publish badge, GitHub is being flaky and it doesn't give useful extra information. PR [#148](https://github.com/tiangolo/library-skills/pull/148) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Add docs for pre-commit. PR [#147](https://github.com/tiangolo/library-skills/pull/147) by [@tiangolo](https://github.com/tiangolo).
 
 ## 0.0.18 (2026-06-21)
