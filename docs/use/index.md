@@ -111,6 +111,52 @@ $ npx library-skills --yes
 
 Use `--check` to validate the current state without changing files. It exits with status code 1 if installs drift.
 
+## Pre-Commit Hook
+
+You can run the same check in a pre-commit hook to catch skill drift when dependencies change.
+
+Use [prek](https://github.com/j178/prek) to run pre-commit hooks:
+
+```console
+$ uvx prek install
+```
+
+Then add a local hook to `.pre-commit-config.yaml`:
+
+//// tab | Python uvx
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: library-skills-check
+        name: library-skills check
+        entry: uvx library-skills --check
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml|uv\.lock|package\.json|package-lock\.json)$
+```
+
+////
+
+//// tab | Node.js npx
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: library-skills-check
+        name: library-skills check
+        entry: npx library-skills --check
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml|uv\.lock|package\.json|package-lock\.json)$
+```
+
+////
+
+If the hook fails, run `library-skills` to install, repair, or remove managed skills, then commit the resulting changes.
+
 ## Agents
 
 This will work with AI Agents that support the `.agents` directory (most of them), including:
