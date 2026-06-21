@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Refactors
+
+* ♻️ Display the specific agent style (.agents, .claude) before removing. PR [#149](https://github.com/tiangolo/library-skills/pull/149) by [@tiangolo](https://github.com/tiangolo).
+
 ### Docs
 
 * 📝 Update docs badges: remove Publish badge, GitHub is being flaky and it doesn't give useful extra information. PR [#148](https://github.com/tiangolo/library-skills/pull/148) by [@tiangolo](https://github.com/tiangolo).
