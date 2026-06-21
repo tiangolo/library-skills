@@ -7,6 +7,10 @@
 * 📝 Update docs badges: remove Publish badge, GitHub is being flaky and it doesn't give useful extra information. PR [#148](https://github.com/tiangolo/library-skills/pull/148) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Add docs for pre-commit. PR [#147](https://github.com/tiangolo/library-skills/pull/147) by [@tiangolo](https://github.com/tiangolo).
 
+### Internal
+
+* ⬆ Bump the python-packages group with 4 updates. PR [#146](https://github.com/tiangolo/library-skills/pull/146) by [@dependabot[bot]](https://github.com/apps/dependabot).
+
 ## 0.0.18 (2026-06-21)
 
 ### Fixes
