@@ -22,7 +22,8 @@
     "library-skills": "ts/dist/cli.js"
   },
   "files": [
-    "ts/dist"
+    "ts/dist",
+    "ts/src/tool_skill"
   ],
   "scripts": {
     "build": "tsup",

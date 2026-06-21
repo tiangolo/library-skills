@@ -4,13 +4,20 @@ import pytest
 
 from library_skills.installer import (
     CLAUDE_SKILLS_DIR,
+    TOOL_SKILL_KIND,
+    TOOL_SKILL_MARKER,
+    TOOL_SKILL_NAME,
     UNIVERSAL_SKILLS_DIR,
     InstallError,
+    ToolSkillError,
     _get_symlink_target,
     get_default_install_target_dirs,
     get_existing_target_dirs,
     get_target_dirs,
+    get_tool_skill_template,
+    inspect_tool_skill,
     install_skill,
+    install_tool_skill,
     list_installed_skills,
     uninstall_skill,
 )
@@ -240,3 +247,62 @@ def test_uninstall_skill_removes_dangling_symlink(tmp_path):
 
     assert uninstall_skill("dangling-skill", target_dir) is True
     assert not dangling.is_symlink()
+
+
+def test_install_tool_skill_copies_template_and_marker(tmp_path):
+    target_dir = tmp_path / ".agents" / "skills"
+
+    installed = install_tool_skill(target_dir)
+
+    assert installed == target_dir / TOOL_SKILL_NAME
+    assert installed.is_dir()
+    assert (installed / "SKILL.md").read_text(encoding="utf-8") == (
+        get_tool_skill_template()
+    )
+    marker = (installed / TOOL_SKILL_MARKER).read_text(encoding="utf-8")
+    assert f'"kind": "{TOOL_SKILL_KIND}"' in marker
+    assert inspect_tool_skill(target_dir).status == "tool skill: up to date"
+
+
+def test_install_tool_skill_updates_managed_stale_copy(tmp_path):
+    target_dir = tmp_path / ".agents" / "skills"
+    installed = install_tool_skill(target_dir)
+    installed.joinpath("SKILL.md").write_text("stale", encoding="utf-8")
+
+    assert inspect_tool_skill(target_dir).status == "tool skill: stale"
+
+    install_tool_skill(target_dir)
+
+    assert installed.joinpath("SKILL.md").read_text(encoding="utf-8") == (
+        get_tool_skill_template()
+    )
+
+
+def test_install_tool_skill_refuses_hand_authored_directory(tmp_path):
+    target_dir = tmp_path / ".agents" / "skills"
+    hand_authored = target_dir / TOOL_SKILL_NAME
+    hand_authored.mkdir(parents=True)
+    hand_authored.joinpath("SKILL.md").write_text("mine", encoding="utf-8")
+
+    status = inspect_tool_skill(target_dir)
+
+    assert status.status == "tool skill: blocked by hand-authored directory"
+    with pytest.raises(ToolSkillError, match="Cannot overwrite"):
+        install_tool_skill(target_dir)
+    assert hand_authored.joinpath("SKILL.md").read_text(encoding="utf-8") == "mine"
+
+
+def test_install_tool_skill_refuses_invalid_marker(tmp_path):
+    target_dir = tmp_path / ".agents" / "skills"
+    installed = target_dir / TOOL_SKILL_NAME
+    installed.mkdir(parents=True)
+    installed.joinpath("SKILL.md").write_text("old", encoding="utf-8")
+    installed.joinpath(TOOL_SKILL_MARKER).write_text(
+        '{"kind":"other"}', encoding="utf-8"
+    )
+
+    status = inspect_tool_skill(target_dir)
+
+    assert status.status == "tool skill: invalid marker"
+    with pytest.raises(ToolSkillError, match="Cannot overwrite"):
+        install_tool_skill(target_dir)

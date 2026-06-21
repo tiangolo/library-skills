@@ -1,12 +1,17 @@
+import json
 import os
 import shutil
 from dataclasses import dataclass
+from importlib import metadata, resources
 from pathlib import Path
 
 from .scanner import Skill
 
 UNIVERSAL_SKILLS_DIR = ".agents/skills"
 CLAUDE_SKILLS_DIR = ".claude/skills"
+TOOL_SKILL_NAME = "library-skills"
+TOOL_SKILL_MARKER = ".library-skills.json"
+TOOL_SKILL_KIND = "tool-skill"
 
 
 @dataclass(frozen=True)
@@ -26,6 +31,15 @@ class InstalledSkill:
     path: Path
     target: Path | None = None
     has_skill_md: bool = False
+
+
+@dataclass(frozen=True)
+class ToolSkillStatus:
+    """Status for the copied Library Skills tool skill in a target."""
+
+    target: InstallTarget
+    path: Path
+    status: str
 
 
 def get_target_dirs(
@@ -93,6 +107,10 @@ class InstallError(Exception):
     """Raised when a skill cannot be installed safely."""
 
 
+class ToolSkillError(Exception):
+    """Raised when the tool skill cannot be managed safely."""
+
+
 def install_skill(
     skill: Skill,
     target_dir: Path,
@@ -145,6 +163,104 @@ def uninstall_skill(skill_name: str, target_dir: Path) -> bool:
         dest.unlink()
         return True
     return False
+
+
+def get_tool_skill_template() -> str:
+    """Return the bundled Library Skills tool skill template."""
+    return (
+        resources.files("library_skills.tool_skill")
+        .joinpath("SKILL.md")
+        .read_text(encoding="utf-8")
+    )
+
+
+def get_tool_skill_version() -> str:
+    """Return the installed library-skills package version for marker metadata."""
+    try:
+        return metadata.version("library-skills")
+    except metadata.PackageNotFoundError:
+        return "0.0.0"
+
+
+def inspect_tool_skill(target_dir: Path) -> ToolSkillStatus:
+    """Inspect the copied tool skill status for a target directory."""
+    target = _target_for_path(target_dir)
+    dest = target_dir / TOOL_SKILL_NAME
+    marker = dest / TOOL_SKILL_MARKER
+    skill_md = dest / "SKILL.md"
+
+    if not dest.exists() and not dest.is_symlink():
+        return ToolSkillStatus(target=target, path=dest, status="tool skill: missing")
+
+    if dest.is_symlink() or not dest.is_dir():
+        return ToolSkillStatus(
+            target=target,
+            path=dest,
+            status="tool skill: blocked by hand-authored directory",
+        )
+
+    if not _is_managed_tool_skill_marker(marker):
+        return ToolSkillStatus(
+            target=target,
+            path=dest,
+            status="tool skill: invalid marker"
+            if marker.exists()
+            else "tool skill: blocked by hand-authored directory",
+        )
+
+    if not skill_md.is_file():
+        return ToolSkillStatus(target=target, path=dest, status="tool skill: stale")
+
+    try:
+        current = skill_md.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return ToolSkillStatus(target=target, path=dest, status="tool skill: stale")
+
+    status = (
+        "tool skill: up to date"
+        if current == get_tool_skill_template()
+        else "tool skill: stale"
+    )
+    return ToolSkillStatus(target=target, path=dest, status=status)
+
+
+def install_tool_skill(target_dir: Path) -> Path:
+    """Install or update the copied Library Skills tool skill in a target."""
+    status = inspect_tool_skill(target_dir)
+    if status.status in {
+        "tool skill: blocked by hand-authored directory",
+        "tool skill: invalid marker",
+    }:
+        raise ToolSkillError(f"Cannot overwrite {status.status}: {status.path}")
+
+    dest = target_dir / TOOL_SKILL_NAME
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / "SKILL.md").write_text(get_tool_skill_template(), encoding="utf-8")
+    (dest / TOOL_SKILL_MARKER).write_text(
+        json.dumps(
+            {"kind": TOOL_SKILL_KIND, "version": get_tool_skill_version()},
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return dest
+
+
+def _target_for_path(target_dir: Path) -> InstallTarget:
+    if target_dir.as_posix().endswith(CLAUDE_SKILLS_DIR):
+        return InstallTarget(name="claude-compatible", path=target_dir)
+    return InstallTarget(name="universal", path=target_dir)
+
+
+def _is_managed_tool_skill_marker(marker: Path) -> bool:
+    try:
+        data = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    return isinstance(data, dict) and data.get("kind") == TOOL_SKILL_KIND
 
 
 def list_installed_skills(target_dir: Path) -> list[InstalledSkill]:
