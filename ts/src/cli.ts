@@ -2,7 +2,7 @@
 
 import checkbox from "@inquirer/checkbox";
 import { Command } from "commander";
-import { realpathSync, statSync } from "node:fs";
+import { realpathSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -15,11 +15,17 @@ import {
 	getDefaultInstallTargetDirs,
 	getExistingTargetDirs,
 	getTargetDirs,
+	inspectToolSkill,
 	installSkill,
+	installToolSkill,
 	InstallError,
 	listInstalledSkills,
+	TOOL_SKILL_MARKER,
+	TOOL_SKILL_NAME,
+	ToolSkillError,
 	uninstallSkill,
 	type InstallTarget,
+	type ToolSkillStatus,
 } from "./installer.js";
 import {
 	findNodeModules,
@@ -80,6 +86,7 @@ interface GlobalOptions {
 	all?: boolean;
 	skill?: string[];
 	copy?: boolean;
+	toolSkill?: boolean;
 }
 
 interface InstallOptions {
@@ -406,6 +413,12 @@ function installedStatuses({
 
 	for (const target of targets) {
 		for (const installed of listInstalledSkills(target.path)) {
+			if (
+				installed.name === TOOL_SKILL_NAME &&
+				exists(`${installed.path}/${TOOL_SKILL_MARKER}`)
+			) {
+				continue;
+			}
 			const skill = installed.target
 				? skillsByDir.get(resolve(installed.target))
 				: null;
@@ -479,6 +492,20 @@ function printStatusTable(statuses: InstalledStatus[], projectRoot: string): voi
 	);
 }
 
+function printToolSkillStatusTable(
+	statuses: ToolSkillStatus[],
+	projectRoot: string,
+): void {
+	printTable(
+		["Target", "Status", "Path"],
+		statuses.map((status) => ({
+			Target: status.target.name,
+			Status: status.status,
+			Path: displayPath(status.path, projectRoot),
+		})),
+	);
+}
+
 function printInstalledSkillsTable(
 	statuses: InstalledStatus[],
 	projectRoot: string,
@@ -539,6 +566,21 @@ async function selectInstallTargets({
 		projectRoot,
 		defaultTargets: getDefaultInstallTargetDirs(projectRoot),
 	});
+}
+
+async function selectToolSkillInteractive(): Promise<boolean> {
+	const selected = await checkbox<boolean>({
+		message:
+			"Copy the Library Skills tool skill into the project so agents know how to update, repair, and check managed skills?",
+		choices: [
+			{
+				name: "Copy Library Skills tool skill",
+				value: true,
+				checked: true,
+			},
+		],
+	});
+	return selected.includes(true);
 }
 
 async function selectInstalledSkillsInteractive(
@@ -698,6 +740,79 @@ function installSelected({
 	return installedCount;
 }
 
+function getToolSkillTemplate(): string {
+	return readFileSync(
+		new URL("../src/tool_skill/SKILL.md", import.meta.url),
+		"utf-8",
+	);
+}
+
+function getToolSkillVersion(): string {
+	const packageJson = JSON.parse(
+		readFileSync(new URL("../../package.json", import.meta.url), "utf-8"),
+	) as { version?: unknown };
+	return typeof packageJson.version === "string" ? packageJson.version : "0.0.0";
+}
+
+function syncToolSkill({
+	targets,
+	projectRoot,
+	check,
+	explicit,
+}: {
+	targets: InstallTarget[];
+	projectRoot: string;
+	check: boolean;
+	explicit: boolean;
+}): { changedCount: number; failed: boolean } {
+	const template = getToolSkillTemplate();
+	const version = getToolSkillVersion();
+	const statuses = targets.map((target) => inspectToolSkill(target.path, template));
+	printToolSkillStatusTable(statuses, projectRoot);
+
+	const drift = statuses.filter(
+		(status) => status.status !== "tool skill: up to date",
+	);
+	if (check) {
+		return { changedCount: 0, failed: drift.length > 0 };
+	}
+
+	let changedCount = 0;
+	let failed = false;
+	for (const status of drift) {
+		try {
+			installToolSkill({
+				targetDir: status.target.path,
+				template,
+				version,
+			});
+		} catch (error) {
+			if (error instanceof ToolSkillError) {
+				console.log(`Skipped tool skill: ${error.message}`);
+				failed ||= explicit;
+				continue;
+			}
+			/* v8 ignore next -- defensive rethrow for unexpected installer failures. */
+			throw error;
+		}
+		console.log(
+			`Copied: library-skills (${status.target.name}) -> ${displayPath(
+				status.path,
+				projectRoot,
+			)}`,
+		);
+		changedCount++;
+	}
+	return { changedCount, failed };
+}
+
+function toolSkillIsMissing(targets: InstallTarget[]): boolean {
+	return targets.some(
+		(target) => inspectToolSkill(target.path, getToolSkillTemplate()).status ===
+			"tool skill: missing",
+	);
+}
+
 async function sync(options: GlobalOptions): Promise<void> {
 	const context = getProjectContext();
 	const result = scanContext(context);
@@ -743,6 +858,20 @@ async function sync(options: GlobalOptions): Promise<void> {
 		["broken", "outdated", "name mismatch", "orphaned"].includes(status.status),
 	);
 	if (options.check) {
+		if (options.toolSkill) {
+			console.log();
+			const toolResult = syncToolSkill({
+				targets: getTargetDirs(context.projectRoot, {
+					includeClaude: options.claude,
+				}),
+				projectRoot: context.projectRoot,
+				check: true,
+				explicit: true,
+			});
+			if (toolResult.failed) {
+				process.exitCode = 1;
+			}
+		}
 		if (drift.length > 0 || collisions.size > 0) {
 			process.exitCode = 1;
 		}
@@ -781,7 +910,8 @@ async function sync(options: GlobalOptions): Promise<void> {
 		selected.length === 0 &&
 		!options.yes &&
 		selectedNames.length === 0 &&
-		!options.all
+		!options.all &&
+		options.toolSkill !== true
 	) {
 		const newSkills = visibleStatuses
 			.filter((status) => status.status === "new" && status.skill !== null)
@@ -791,6 +921,8 @@ async function sync(options: GlobalOptions): Promise<void> {
 		}
 	}
 
+	let toolSkillChanges = 0;
+	let toolSkillFailed = false;
 	if (selected.length > 0) {
 		targets = await selectInstallTargets({
 			projectRoot: context.projectRoot,
@@ -811,10 +943,40 @@ async function sync(options: GlobalOptions): Promise<void> {
 		console.log();
 		console.log(`Installed ${installedCount} skill target(s).`);
 	}
+	if (options.toolSkill === true) {
+		console.log();
+		const toolResult = syncToolSkill({
+			targets,
+			projectRoot: context.projectRoot,
+			check: false,
+			explicit: true,
+		});
+		toolSkillChanges = toolResult.changedCount;
+		if (toolResult.failed) {
+			toolSkillFailed = true;
+			process.exitCode = 1;
+		}
+	} else if (
+		options.toolSkill === undefined &&
+		!options.yes &&
+		toolSkillIsMissing(targets) &&
+		(await selectToolSkillInteractive())
+	) {
+		console.log();
+		const toolResult = syncToolSkill({
+			targets,
+			projectRoot: context.projectRoot,
+			check: false,
+			explicit: false,
+		});
+		toolSkillChanges = toolResult.changedCount;
+	}
 	if (
 		selectedRepairs.length === 0 &&
 		selectedRemovals.length === 0 &&
-		selected.length === 0
+		selected.length === 0 &&
+		toolSkillChanges === 0 &&
+		!toolSkillFailed
 	) {
 		console.log("No changes needed.");
 	}
@@ -980,6 +1142,8 @@ export function createProgram(): Command {
 		.option("--check", "Validate only; exit 1 if installs drift")
 		.option("--all", "Install all newly discovered unmanaged skills")
 		.option("--copy", "Copy files instead of creating symlinks")
+		.option("--tool-skill", "Copy the Library Skills tool skill into the project")
+		.option("--no-tool-skill", "Skip Library Skills tool skill management")
 		.option(
 			"-s, --skill <name>",
 			"Install a specific discovered skill by name",
@@ -1084,6 +1248,8 @@ if (
 export const testing = {
 	filterInstallableSkills,
 	findCollisions,
+	getToolSkillTemplate,
+	getToolSkillVersion,
 	getProjectContext,
 	installSelected,
 	installedStatuses,
@@ -1094,6 +1260,8 @@ export const testing = {
 	repairableStatuses,
 	scanCommand,
 	selectStatusesInteractive,
+	selectToolSkillInteractive,
+	syncToolSkill,
 	syncTargetDirs,
 	sync,
 	topLevelSkills,

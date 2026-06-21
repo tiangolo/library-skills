@@ -9,6 +9,11 @@ from typer.testing import CliRunner
 
 import library_skills.cli as cli
 from library_skills.cli import app
+from library_skills.installer import (
+    TOOL_SKILL_MARKER,
+    TOOL_SKILL_NAME,
+    get_tool_skill_template,
+)
 
 runner = CliRunner()
 
@@ -874,6 +879,79 @@ def test_check_reports_fixable_drift_without_modifying_files(tmp_path, monkeypat
     assert broken_link.is_symlink()
 
 
+def test_check_ignores_tool_skill_drift_unless_requested(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=[])
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["--check"])
+
+    assert result.exit_code == 0
+    assert not (project / ".agents" / "skills" / TOOL_SKILL_NAME).exists()
+
+
+def test_check_tool_skill_reports_missing_default_and_claude_targets(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_project(tmp_path, dependencies=[])
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["--check", "--tool-skill", "--claude"])
+
+    assert result.exit_code == 1
+    assert "tool skill: missing" in result.output
+    assert ".agents/skills/library-skills" in result.output
+    assert ".claude/skills/library-skills" in result.output
+
+
+def test_tool_skill_installs_and_updates_copied_skill(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=[])
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["--tool-skill"])
+
+    installed = project / ".agents" / "skills" / TOOL_SKILL_NAME
+    assert result.exit_code == 0
+    assert installed.joinpath("SKILL.md").read_text(encoding="utf-8") == (
+        get_tool_skill_template()
+    )
+    assert installed.joinpath(TOOL_SKILL_MARKER).is_file()
+
+    installed.joinpath("SKILL.md").write_text("stale", encoding="utf-8")
+    update_result = runner.invoke(app, ["--tool-skill"])
+
+    assert update_result.exit_code == 0
+    assert "tool skill: stale" in update_result.output
+    assert "hand-authored" not in update_result.output
+    assert installed.joinpath("SKILL.md").read_text(encoding="utf-8") == (
+        get_tool_skill_template()
+    )
+
+
+def test_no_tool_skill_skips_management(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=[])
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["--no-tool-skill"])
+
+    assert result.exit_code == 0
+    assert not (project / ".agents" / "skills" / TOOL_SKILL_NAME).exists()
+
+
+def test_explicit_tool_skill_fails_on_hand_authored_directory(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=[])
+    hand_authored = project / ".agents" / "skills" / TOOL_SKILL_NAME
+    hand_authored.mkdir(parents=True)
+    hand_authored.joinpath("SKILL.md").write_text("mine", encoding="utf-8")
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["--tool-skill"])
+
+    assert result.exit_code == 1
+    assert "blocked by hand-authored" in result.output
+    assert hand_authored.joinpath("SKILL.md").read_text(encoding="utf-8") == "mine"
+
+
 def test_default_sync_with_no_changes_reports_no_changes_needed(
     tmp_path,
     monkeypatch,
@@ -881,10 +959,38 @@ def test_default_sync_with_no_changes_reports_no_changes_needed(
     project = write_project(tmp_path, dependencies=[])
     monkeypatch.chdir(project)
 
-    result = runner.invoke(app)
+    with patch.object(cli, "_select_tool_skill_interactive", lambda: False):
+        result = runner.invoke(app)
 
     assert result.exit_code == 0
     assert "No changes needed." in result.output
+
+
+def test_default_sync_prompts_for_missing_tool_skill_without_new_skills(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    skill_dir = write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    installed_dir = project / ".agents" / "skills"
+    installed_dir.mkdir(parents=True)
+    (installed_dir / "demo-skill").symlink_to(skill_dir, target_is_directory=True)
+    monkeypatch.chdir(project)
+
+    with patch.object(cli, "_select_tool_skill_interactive", lambda: True):
+        result = runner.invoke(app)
+
+    tool_skill = project / ".agents" / "skills" / TOOL_SKILL_NAME
+    assert result.exit_code == 0
+    assert tool_skill.joinpath("SKILL.md").read_text(encoding="utf-8") == (
+        get_tool_skill_template()
+    )
 
 
 def test_list_json_reports_discovered_and_installed_skills(tmp_path, monkeypatch):
@@ -1302,14 +1408,17 @@ def test_default_command_interactive_selection_installs_selected_skill(
             "_select_targets_interactive",
             lambda project_root, default_targets: default_targets,
         ),
+        patch.object(cli, "_select_tool_skill_interactive", lambda: True),
     ):
         result = runner.invoke(app)
 
     installed = project / ".agents" / "skills" / "demo-skill"
+    tool_skill = project / ".agents" / "skills" / TOOL_SKILL_NAME
     assert result.exit_code == 0
     assert "Installed 1 skill target(s)." in result.output
     assert installed.is_symlink()
     assert installed.resolve() == skill_dir.resolve()
+    assert tool_skill.joinpath("SKILL.md").is_file()
 
 
 def test_default_command_copy_installs_selected_skill_as_directory(
@@ -1333,6 +1442,7 @@ def test_default_command_copy_installs_selected_skill_as_directory(
             "_select_targets_interactive",
             lambda project_root, default_targets: default_targets,
         ),
+        patch.object(cli, "_select_tool_skill_interactive", lambda: False),
     ):
         result = runner.invoke(app, ["--copy"])
 
@@ -1371,6 +1481,7 @@ def test_default_command_deduplicates_new_skills_across_targets(
             "_select_targets_interactive",
             lambda project_root, default_targets: default_targets,
         ),
+        patch.object(cli, "_select_tool_skill_interactive", lambda: False),
     ):
         result = runner.invoke(app)
 
@@ -1579,6 +1690,28 @@ def test_select_targets_interactive_preselects_defaults(monkeypatch, tmp_path):
     )
 
     assert [target.name for target in selected] == ["claude-compatible"]
+
+
+def test_select_tool_skill_interactive_uses_checked_menu(monkeypatch):
+    class FakeToolkitMenu:
+        style = None
+        console = None
+
+    class FakeMenu:
+        def __init__(self, label, *, options, **kwargs):
+            assert "Library Skills tool skill" in label
+            assert kwargs["multiple"] is True
+            self.options = options
+            self.checked = set()
+
+        def ask(self):
+            assert self.checked == {0}
+            return [self.options[index]["value"] for index in sorted(self.checked)]
+
+    monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkitMenu())
+    monkeypatch.setattr(cli, "Menu", FakeMenu)
+
+    assert cli._select_tool_skill_interactive() is True
 
 
 def test_get_rich_toolkit_returns_toolkit_instance():

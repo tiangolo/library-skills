@@ -18,13 +18,19 @@ from .deps import (
     get_workspace_top_level_deps,
 )
 from .installer import (
+    TOOL_SKILL_MARKER,
+    TOOL_SKILL_NAME,
     InstallError,
     InstallTarget,
+    ToolSkillError,
+    ToolSkillStatus,
     get_all_target_dirs,
     get_default_install_target_dirs,
     get_existing_target_dirs,
     get_target_dirs,
+    inspect_tool_skill,
     install_skill,
+    install_tool_skill,
     list_installed_skills,
     uninstall_skill,
 )
@@ -380,6 +386,27 @@ def _select_install_targets(
     )
 
 
+def _select_tool_skill_interactive() -> bool:
+    toolkit = _get_rich_toolkit()
+    menu = Menu(
+        "Copy the Library Skills tool skill into the project so agents know how "
+        "to update, repair, and check managed skills?",
+        options=[
+            Option(
+                {
+                    "name": "Copy Library Skills tool skill",
+                    "value": True,
+                }
+            )
+        ],
+        style=toolkit.style,
+        console=toolkit.console,
+        multiple=True,
+    )
+    menu.checked = {0}
+    return True in menu.ask()
+
+
 def _find_collisions(skills: list[Skill]) -> set[str]:
     counts = Counter(skill.name for skill in skills)
     return {name for name, count in counts.items() if count > 1}
@@ -429,6 +456,11 @@ def _installed_statuses(
 
     for target in targets:
         for installed in list_installed_skills(target.path):
+            if (
+                installed.name == TOOL_SKILL_NAME
+                and (installed.path / TOOL_SKILL_MARKER).exists()
+            ):
+                continue
             target_path = installed.target
             skill = skills_by_dir.get(target_path) if target_path else None
 
@@ -497,6 +529,22 @@ def _print_status_table(statuses: list[InstalledStatus], project_root: Path) -> 
             status.status,
             _display_path(status.path, project_root),
             _display_path(status.target_path, project_root),
+        )
+    console.print(table)
+
+
+def _print_tool_skill_status_table(
+    statuses: list[ToolSkillStatus], project_root: Path
+) -> None:
+    table = Table(show_header=True, header_style="bold", box=None)
+    table.add_column("Target")
+    table.add_column("Status")
+    table.add_column("Path")
+    for status in statuses:
+        table.add_row(
+            status.target.name,
+            status.status,
+            _display_path(status.path, project_root),
         )
     console.print(table)
 
@@ -652,6 +700,44 @@ def _install_selected(
     return installed_count
 
 
+def _sync_tool_skill(
+    *,
+    targets: list[InstallTarget],
+    project_root: Path,
+    check: bool,
+    explicit: bool,
+) -> tuple[int, bool]:
+    statuses = [inspect_tool_skill(target.path) for target in targets]
+    _print_tool_skill_status_table(statuses, project_root)
+
+    drift = [status for status in statuses if status.status != "tool skill: up to date"]
+    if check:
+        return 0, bool(drift)
+
+    changed_count = 0
+    failed = False
+    for status in drift:
+        try:
+            install_tool_skill(status.target.path)
+        except ToolSkillError as e:
+            console.print(f"[error]Skipped tool skill:[/] {e}")
+            failed = failed or explicit
+            continue
+        console.print(
+            f"Copied: [bold]library-skills[/bold] ({status.target.name}) -> "
+            f"{_display_path(status.path, project_root)}"
+        )
+        changed_count += 1
+    return changed_count, failed
+
+
+def _tool_skill_is_missing(targets: list[InstallTarget]) -> bool:
+    return any(
+        inspect_tool_skill(target.path).status == "tool skill: missing"
+        for target in targets
+    )
+
+
 def _sync(
     *,
     include_claude: bool,
@@ -660,6 +746,7 @@ def _sync(
     include_all: bool,
     selected_names: list[str],
     copy: bool,
+    tool_skill: bool | None,
 ) -> None:
     context = _get_project_context()
     result = _scan_context(context)
@@ -704,6 +791,18 @@ def _sync(
         if status.status in {"broken", "outdated", "name mismatch", "orphaned"}
     ]
     if check:
+        if tool_skill:
+            console.print()
+            _, tool_failed = _sync_tool_skill(
+                targets=get_target_dirs(
+                    context.project_root, include_claude=include_claude
+                ),
+                project_root=context.project_root,
+                check=True,
+                explicit=True,
+            )
+            if tool_failed:
+                raise typer.Exit(1)
         if drift or collisions:
             raise typer.Exit(1)
         return
@@ -734,7 +833,13 @@ def _sync(
         selected_names=selected_names,
         include_all=include_all,
     )
-    if not selected and not yes and not selected_names and not include_all:
+    if (
+        not selected
+        and not yes
+        and not selected_names
+        and not include_all
+        and tool_skill is not True
+    ):
         new_skills = [
             status.skill
             for status in visible_statuses
@@ -743,6 +848,7 @@ def _sync(
         if new_skills:
             selected = _select_skills_interactive(_deduplicate_skills(new_skills))
 
+    tool_skill_changes = 0
     if selected:
         targets = _select_install_targets(
             project_root=context.project_root,
@@ -761,7 +867,31 @@ def _sync(
         )
         console.print()
         console.print(f"Installed {installed_count} skill target(s).")
-    if not selected_repairs and not selected_removals and not selected:
+    if tool_skill is True:
+        console.print()
+        tool_skill_changes, tool_failed = _sync_tool_skill(
+            targets=targets,
+            project_root=context.project_root,
+            check=False,
+            explicit=True,
+        )
+        if tool_failed:
+            raise typer.Exit(1)
+    elif tool_skill is None and not yes and _tool_skill_is_missing(targets):
+        if _select_tool_skill_interactive():
+            console.print()
+            tool_skill_changes, _ = _sync_tool_skill(
+                targets=targets,
+                project_root=context.project_root,
+                check=False,
+                explicit=False,
+            )
+    if (
+        not selected_repairs
+        and not selected_removals
+        and not selected
+        and not tool_skill_changes
+    ):
         console.print("No changes needed.")
 
 
@@ -794,6 +924,13 @@ def callback(
     copy: Annotated[
         bool, typer.Option("--copy", help="Copy files instead of creating symlinks")
     ] = False,
+    tool_skill: Annotated[
+        bool | None,
+        typer.Option(
+            "--tool-skill/--no-tool-skill",
+            help="Copy the Library Skills tool skill into the project",
+        ),
+    ] = None,
 ) -> None:
     """Discover and reconcile agent skills from installed library packages."""
     if ctx.invoked_subcommand is None:
@@ -804,6 +941,7 @@ def callback(
             include_all=include_all,
             selected_names=selected_names or [],
             copy=copy,
+            tool_skill=tool_skill,
         )
 
 
