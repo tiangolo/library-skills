@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Features
+
+* ✨ Add skill to use library-skills, installable when using the `library-skills` CLI. PR [#134](https://github.com/tiangolo/library-skills/pull/134) by [@tiangolo](https://github.com/tiangolo).
+
 ### Internal
 
 * ➖ Drop support for CommonJS, this is a CLI, ESM is enough. PR [#133](https://github.com/tiangolo/library-skills/pull/133) by [@tiangolo](https://github.com/tiangolo).
