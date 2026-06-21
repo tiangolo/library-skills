@@ -3,7 +3,7 @@
 import checkbox from "@inquirer/checkbox";
 import { Command } from "commander";
 import { realpathSync, readFileSync, statSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	getNodeWorkspaceTopLevelDeps,
@@ -751,34 +751,17 @@ function toolSkillTargets({
 }
 
 function getToolSkillTemplate(): string {
-	for (const path of toolSkillTemplateCandidates()) {
-		if (exists(path)) {
-			return readFileSync(path, "utf-8");
-		}
-	}
-	/* v8 ignore next -- packaged CLI should always include the bundled tool skill. */
-	throw new ToolSkillError("Could not find bundled Library Skills tool skill template.");
+	return readFileSync(
+		new URL("../src/tool_skill/SKILL.md", import.meta.url),
+		"utf-8",
+	);
 }
 
 function getToolSkillVersion(): string {
-	const packageJsonPath = join(
-		dirname(fileURLToPath(import.meta.url)),
-		"..",
-		"..",
-		"package.json",
-	);
-	const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8")) as {
-		version?: unknown;
-	};
+	const packageJson = JSON.parse(
+		readFileSync(new URL("../../package.json", import.meta.url), "utf-8"),
+	) as { version?: unknown };
 	return typeof packageJson.version === "string" ? packageJson.version : "0.0.0";
-}
-
-function toolSkillTemplateCandidates(): string[] {
-	const moduleDir = dirname(fileURLToPath(import.meta.url));
-	return [
-		join(moduleDir, "tool_skill", "SKILL.md"),
-		join(moduleDir, "..", "src", "tool_skill", "SKILL.md"),
-	];
 }
 
 function syncToolSkill({
@@ -1289,7 +1272,6 @@ export const testing = {
 	syncToolSkill,
 	syncTargetDirs,
 	sync,
-	toolSkillTemplateCandidates,
 	toolSkillTargets,
 	topLevelSkills,
 	displayPath,

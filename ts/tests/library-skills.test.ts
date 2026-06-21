@@ -28,10 +28,14 @@ import {
   getDefaultInstallTargetDirs,
   getExistingTargetDirs,
   getTargetDirs,
+  inspectToolSkill,
   InstallError,
   installSkill,
+  installToolSkill,
   listInstalledSkills,
   testing as installerTesting,
+  TOOL_SKILL_MARKER,
+  TOOL_SKILL_NAME,
   uninstallSkill,
 } from "../src/installer.js";
 import {
@@ -71,11 +75,28 @@ beforeEach(() => {
 afterEach(() => {
   process.chdir(originalCwd);
   process.env = originalEnv;
+  process.exitCode = undefined;
   for (const directory of tempDirs.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
   }
   vi.restoreAllMocks();
 });
+
+function getToolSkillTemplate(): string {
+  return cliTesting.getToolSkillTemplate();
+}
+
+function inspectTestToolSkill(targetDir: string) {
+  return inspectToolSkill(targetDir, getToolSkillTemplate());
+}
+
+function installTestToolSkill(targetDir: string): string {
+  return installToolSkill({
+    targetDir,
+    template: getToolSkillTemplate(),
+    version: cliTesting.getToolSkillVersion(),
+  });
+}
 
 test("scans Python distribution RECORD entries for valid skills", () => {
   const sitePackages = tempDir();
@@ -965,6 +986,51 @@ describe("installer", () => {
     expect(installerTesting.isSymlink(join(root, "missing"))).toBe(false);
     expect(installerTesting.isDirectory(join(root, "missing"))).toBe(false);
   });
+
+  test("copies, updates, and protects the Library Skills tool skill", () => {
+    const root = tempDir();
+    const targetDir = join(root, ".agents", "skills");
+
+    const installed = installTestToolSkill(targetDir);
+
+    expect(installed).toBe(join(targetDir, TOOL_SKILL_NAME));
+    expect(readFileSync(join(installed, "SKILL.md"), "utf-8")).toBe(
+      getToolSkillTemplate(),
+    );
+    expect(readFileSync(join(installed, TOOL_SKILL_MARKER), "utf-8")).toContain(
+      '"kind": "tool-skill"',
+    );
+    expect(inspectTestToolSkill(targetDir).status).toBe("tool skill: up to date");
+
+    writeFileSync(join(installed, "SKILL.md"), "stale");
+    expect(inspectTestToolSkill(targetDir).status).toBe("tool skill: stale");
+    installTestToolSkill(targetDir);
+    expect(readFileSync(join(installed, "SKILL.md"), "utf-8")).toBe(
+      getToolSkillTemplate(),
+    );
+
+    rmSync(installed, { recursive: true, force: true });
+    mkdirSync(installed, { recursive: true });
+    writeFileSync(join(installed, "SKILL.md"), "mine");
+    expect(inspectTestToolSkill(targetDir).status).toBe(
+      "tool skill: blocked by hand-authored directory",
+    );
+    expect(() => installTestToolSkill(targetDir)).toThrow("Cannot overwrite");
+
+    writeFileSync(join(installed, TOOL_SKILL_MARKER), '{"kind":"other"}');
+    expect(inspectTestToolSkill(targetDir).status).toBe("tool skill: invalid marker");
+    expect(() => installTestToolSkill(targetDir)).toThrow("Cannot overwrite");
+
+    writeFileSync(join(installed, TOOL_SKILL_MARKER), '{"kind":"tool-skill"}');
+    rmSync(join(installed, "SKILL.md"));
+    expect(inspectTestToolSkill(targetDir).status).toBe("tool skill: stale");
+
+    rmSync(installed, { recursive: true, force: true });
+    symlinkSync(join(root, "missing-tool-skill"), installed, "dir");
+    expect(inspectTestToolSkill(targetDir).status).toBe(
+      "tool skill: blocked by hand-authored directory",
+    );
+  });
 });
 
 test("CLI scan defaults to top-level project dependencies", async () => {
@@ -1662,11 +1728,48 @@ test("CLI default command supports copy mode for new installs", async () => {
     { name: "universal", path: join(project, ".agents", "skills") },
   ]);
 
-  await createProgram().parseAsync(["node", "library-skills", "--copy"]);
+  await createProgram().parseAsync(["node", "library-skills", "--copy", "--no-tool-skill"]);
 
   const installed = join(project, ".agents", "skills", "top-skill");
   expect(lstatSync(installed).isDirectory()).toBe(true);
   expect(lstatSync(installed).isSymbolicLink()).toBe(false);
+});
+
+test("CLI default command can install the tool skill after package skills", async () => {
+  const project = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(project);
+
+  vi.mocked(checkbox)
+    .mockResolvedValueOnce([
+      makeSkill({
+        name: "top-skill",
+        skillDir: join(
+          project,
+          ".venv",
+          "lib",
+          "python3.12",
+          "site-packages",
+          "top_level_pkg",
+          ".agents",
+          "skills",
+          "top-skill",
+        ),
+      }),
+    ])
+    .mockResolvedValueOnce([
+      { name: "universal", path: join(project, ".agents", "skills") },
+    ])
+    .mockResolvedValueOnce([true]);
+
+  await createProgram().parseAsync(["node", "library-skills"]);
+
+  expect(existsSync(join(project, ".agents", "skills", "top-skill"))).toBe(true);
+  expect(
+    readFileSync(
+      join(project, ".agents", "skills", TOOL_SKILL_NAME, "SKILL.md"),
+      "utf-8",
+    ),
+  ).toBe(getToolSkillTemplate());
 });
 
 test("CLI interactive install can choose Claude targets", async () => {
@@ -1795,7 +1898,7 @@ test("CLI sync covers check mode, interactive installs, and automatic drift reco
   const { log } = mockConsole();
 
   vi.mocked(checkbox).mockImplementationOnce(async (prompt) => [prompt.choices[0].value]);
-  await cliTesting.sync({ all: true });
+  await cliTesting.sync({ all: true, toolSkill: false });
   expect(lstatSync(join(project, ".agents", "skills", "top-skill")).isSymbolicLink()).toBe(true);
   expect(log).toHaveBeenCalledWith("Installed 2 skill target(s).");
 
@@ -1858,7 +1961,7 @@ test("CLI sync covers check mode, interactive installs, and automatic drift reco
   vi.mocked(checkbox)
     .mockImplementationOnce(async (prompt) => [prompt.choices[0].value])
     .mockImplementationOnce(async (prompt) => [prompt.choices[0].value]);
-  await cliTesting.sync({});
+  await cliTesting.sync({ toolSkill: false });
   expect(lstatSync(join(interactive, ".agents", "skills", "interactive-skill")).isSymbolicLink()).toBe(
     true,
   );
@@ -1867,8 +1970,75 @@ test("CLI sync covers check mode, interactive installs, and automatic drift reco
   vi.mocked(checkbox).mockImplementationOnce(async (prompt) =>
     prompt.choices.map((choice) => choice.value),
   );
-  await createProgram().parseAsync(["--all"], { from: "user" });
+  await createProgram().parseAsync(["--all", "--no-tool-skill"], { from: "user" });
   expect(log).toHaveBeenCalledWith("Installed 2 skill target(s).");
+});
+
+test("CLI sync manages the copied tool skill explicitly", async () => {
+  const project = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(project);
+  const { log } = mockConsole();
+
+  await cliTesting.sync({ toolSkill: true });
+
+  const installed = join(project, ".agents", "skills", TOOL_SKILL_NAME);
+  expect(readFileSync(join(installed, "SKILL.md"), "utf-8")).toBe(
+    getToolSkillTemplate(),
+  );
+  expect(existsSync(join(installed, TOOL_SKILL_MARKER))).toBe(true);
+
+  writeFileSync(join(installed, "SKILL.md"), "stale");
+  await cliTesting.sync({ toolSkill: true });
+
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("tool skill: stale"));
+  expect(log.mock.calls.flat().join("\n")).not.toContain("hand-authored");
+  expect(readFileSync(join(installed, "SKILL.md"), "utf-8")).toBe(
+    getToolSkillTemplate(),
+  );
+
+  rmSync(installed, { recursive: true, force: true });
+  await cliTesting.sync({ toolSkill: false, yes: true });
+  expect(existsSync(installed)).toBe(false);
+});
+
+test("CLI check tool skill covers default, Claude, and blocked targets", async () => {
+  const project = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(project);
+  const { log } = mockConsole();
+
+  await cliTesting.sync({ check: true });
+  expect(process.exitCode).toBeUndefined();
+
+  await cliTesting.sync({ check: true, toolSkill: true, claude: true });
+  expect(process.exitCode).toBe(1);
+  process.exitCode = undefined;
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("tool skill: missing"));
+  expect(log).toHaveBeenCalledWith(
+    expect.stringContaining(join(".claude", "skills", "library-skills")),
+  );
+
+  const handAuthored = join(project, ".agents", "skills", TOOL_SKILL_NAME);
+  mkdirSync(handAuthored, { recursive: true });
+  writeFileSync(join(handAuthored, "SKILL.md"), "mine");
+  await cliTesting.sync({ toolSkill: true });
+  expect(process.exitCode).toBe(1);
+  process.exitCode = undefined;
+  expect(readFileSync(join(handAuthored, "SKILL.md"), "utf-8")).toBe("mine");
+});
+
+test("CLI explicit tool skill fails after package install when target is blocked", async () => {
+  const project = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(project);
+  const handAuthored = join(project, ".agents", "skills", TOOL_SKILL_NAME);
+  mkdirSync(handAuthored, { recursive: true });
+  writeFileSync(join(handAuthored, "SKILL.md"), "mine");
+
+  await cliTesting.sync({ all: true, yes: true, toolSkill: true });
+
+  expect(process.exitCode).toBe(1);
+  process.exitCode = undefined;
+  expect(existsSync(join(project, ".agents", "skills", "top-skill"))).toBe(true);
+  expect(readFileSync(join(handAuthored, "SKILL.md"), "utf-8")).toBe("mine");
 });
 
 test("CLI sync deduplicates new skills across selected targets", async () => {
@@ -1886,7 +2056,7 @@ test("CLI sync deduplicates new skills across selected targets", async () => {
     })
     .mockImplementationOnce(async (prompt) => prompt.choices.map((choice) => choice.value));
 
-  await cliTesting.sync({});
+  await cliTesting.sync({ toolSkill: false });
 
   expect(lstatSync(join(project, ".agents", "skills", "top-skill")).isSymbolicLink()).toBe(true);
   expect(lstatSync(join(project, ".claude", "skills", "top-skill")).isSymbolicLink()).toBe(true);
