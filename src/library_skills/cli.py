@@ -815,7 +815,6 @@ def _sync(
     repairable = _repairable_statuses(drift)
     removable = _removable_statuses(drift)
     if drift:
-        ui.print_line(console=console)
         ui.print_title("attention", console=console)
         ui.print_warning("Some installed skills need attention.", console=console)
         ui.print_message(

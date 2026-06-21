@@ -865,7 +865,6 @@ async function sync(options: GlobalOptions): Promise<void> {
 	const repairable = repairableStatuses(drift);
 	const removable = removableStatuses(drift);
 	if (drift.length > 0) {
-		output.printLine();
 		output.printTitle("attention");
 		output.printWarning("Some installed skills need attention.");
 		output.printMessage("Select the skills to install, repair, or remove.");

@@ -1,4 +1,13 @@
 const COLORS = {
+	actionInstallBadge: "\u001b[1;37;42m",
+	actionRemoveBadge: "\u001b[1;37;41m",
+	actionRepairBadge: "\u001b[1;37;44m",
+	attentionBadge: "\u001b[1;37;41m",
+	contextBadge: "\u001b[1;37;46m",
+	hintBadge: "\u001b[30;43m",
+	resultBadge: "\u001b[1;37;42m",
+	statusBadge: "\u001b[1;37;44m",
+	warningBadge: "\u001b[1;37;43m",
 	install: "\u001b[1;32m",
 	repair: "\u001b[1;34m",
 	remove: "\u001b[1;31m",
@@ -23,8 +32,14 @@ export function printLine(): void {
 	console.log();
 }
 
-export function printTitle(title: string): void {
-	console.log(title);
+export function printTitle(
+	title: string,
+	options: { before?: boolean } = {},
+): void {
+	if (options.before ?? true) {
+		console.log();
+	}
+	console.log(badge(title, title));
 }
 
 export function printMessage(message: string): void {
@@ -32,22 +47,26 @@ export function printMessage(message: string): void {
 }
 
 export function printWarning(message: string): void {
-	console.log(`${COLORS.warning}Warning:${COLORS.reset} ${message}`);
+	console.log(`${badge("warning", "Warning:")} ${message}`);
 }
 
 export function printHint(message: string): void {
-	console.log(`${COLORS.dim}Hint: ${message}${COLORS.reset}`);
+	console.log(`${badge("hint", "Tip:")} ${message}`);
 }
 
 export function printActionHeader(
 	action: "install" | "repair" | "remove",
+	options: { before?: boolean } = {},
 ): void {
 	const labels = {
 		install: "Install new skills",
 		repair: "Repair installed skills",
 		remove: "Remove stale skills",
 	};
-	console.log(`${COLORS[action]}${labels[action]}${COLORS.reset}`);
+	if (options.before ?? true) {
+		console.log();
+	}
+	console.log(badge(`action.${action}`, labels[action]));
 }
 
 export function printResult({
@@ -61,11 +80,11 @@ export function printResult({
 	target: string;
 	path: string;
 }): void {
-	console.log(`${COLORS.success}${action}:${COLORS.reset} ${name} (${target}) -> ${path}`);
+	console.log(`${badge("result", `${action}:`)} ${name} (${target}) -> ${path}`);
 }
 
 export function printSkipped(name: string, reason: string): void {
-	console.log(`${COLORS.warning}Skipped:${COLORS.reset} ${name}: ${reason}`);
+	console.log(`${badge("warning", "Skipped:")} ${name}: ${reason}`);
 }
 
 export function printSummary(items: Record<string, number>): void {
@@ -79,9 +98,9 @@ export function printSummary(items: Record<string, number>): void {
 		return;
 	}
 	console.log(
-		`${COLORS.success}Summary: ${entries
+		`${badge("result", "Summary:")} ${entries
 			.map(([name, count]) => `${name}: ${count}`)
-			.join(", ")}${COLORS.reset}`,
+			.join(", ")}`,
 	);
 }
 
@@ -110,6 +129,21 @@ export function printTable(
 export function styledStatus(status: string): string {
 	const color = STATUS_COLORS[status];
 	return color ? `${color}${status}${COLORS.reset}` : status;
+}
+
+function badge(kind: string, label: string): string {
+	const badges: Record<string, string> = {
+		"action.install": COLORS.actionInstallBadge,
+		"action.remove": COLORS.actionRemoveBadge,
+		"action.repair": COLORS.actionRepairBadge,
+		attention: COLORS.attentionBadge,
+		context: COLORS.contextBadge,
+		hint: COLORS.hintBadge,
+		result: COLORS.resultBadge,
+		status: COLORS.statusBadge,
+		warning: COLORS.warningBadge,
+	};
+	return `${badges[kind] ?? COLORS.dim} ${label} ${COLORS.reset}`;
 }
 
 function stripAnsi(value: string): string {

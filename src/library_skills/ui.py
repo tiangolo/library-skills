@@ -11,6 +11,15 @@ RICH_THEME = {
     "action.install": "bold green",
     "action.remove": "bold red",
     "action.repair": "bold blue",
+    "badge.action.install": "bold white on green",
+    "badge.action.remove": "bold white on red",
+    "badge.action.repair": "bold white on blue",
+    "badge.attention": "bold white on red",
+    "badge.context": "bold white on dark_cyan",
+    "badge.hint": "black on yellow",
+    "badge.result": "bold white on green",
+    "badge.status": "bold white on blue",
+    "badge.warning": "bold white on dark_orange",
     "cancelled": "red italic",
     "error": "red",
     "hint": "dim",
@@ -52,34 +61,47 @@ def print_line(*, console: Console | None = None) -> None:
     _console(console).print()
 
 
-def print_title(title: str, *, console: Console | None = None) -> None:
-    get_toolkit(console=console).print_title(title)
+def print_title(
+    title: str,
+    *,
+    console: Console | None = None,
+    before: bool = True,
+) -> None:
+    target_console = _console(console)
+    if before:
+        target_console.print()
+    target_console.print(_badge(title, title))
 
 
 def print_warning(message: str, *, console: Console | None = None) -> None:
-    _console(console).print(f"[warning]Warning:[/] {message}")
+    _console(console).print(f"{_badge('warning', 'Warning:')} {message}")
 
 
 def print_error(message: str, *, console: Console | None = None) -> None:
-    _console(console).print(f"[error]Error:[/] {message}")
+    _console(console).print(f"{_badge('warning', 'Error:')} {message}")
 
 
 def print_hint(message: str, *, console: Console | None = None) -> None:
-    _console(console).print(f"[hint]Hint:[/] {message}")
+    _console(console).print(f"{_badge('hint', 'Tip:')} {message}")
 
 
 def print_message(message: str, *, console: Console | None = None) -> None:
     _console(console).print(message)
 
 
-def print_action_header(action: str, *, console: Console | None = None) -> None:
+def print_action_header(
+    action: str, *, console: Console | None = None, before: bool = True
+) -> None:
     labels = {
         "install": ("action.install", "Install new skills"),
         "repair": ("action.repair", "Repair installed skills"),
         "remove": ("action.remove", "Remove stale skills"),
     }
     style, label = labels[action]
-    _console(console).print(f"[{style}]{label}[/]")
+    target_console = _console(console)
+    if before:
+        target_console.print()
+    target_console.print(f"{_badge(f'action.{action}', label, fallback=style)}")
 
 
 def print_warnings(warnings: list[str], *, console: Console | None = None) -> None:
@@ -142,12 +164,21 @@ def print_result(
     console: Console | None = None,
 ) -> None:
     _console(console).print(
-        f"[success]{action}:[/] [bold]{name}[/bold] ({target}) -> {path}"
+        f"{_badge('result', action + ':')} [bold]{name}[/bold] ({target}) -> {path}"
     )
 
 
 def print_skipped(name: str, reason: str, *, console: Console | None = None) -> None:
-    _console(console).print(f"[warning]Skipped:[/] [bold]{name}[/bold]: {reason}")
+    _console(console).print(
+        f"{_badge('warning', 'Skipped:')} [bold]{name}[/bold]: {reason}"
+    )
+
+
+def _badge(kind: str, label: str, *, fallback: str | None = None) -> str:
+    style = f"badge.{kind}"
+    if style not in RICH_THEME:
+        style = fallback or "tag"
+    return f"[{style}] {label} [/]"
 
 
 def _styled_status(status: str) -> str:
@@ -175,4 +206,4 @@ def print_summary(items: dict[str, int], *, console: Console | None = None) -> N
         print_message(f"Installed {count} skill target(s).", console=console)
         return
     summary = ", ".join(f"{name}: {count}" for name, count in non_zero.items())
-    _console(console).print(f"[success]Summary: {summary}[/]")
+    _console(console).print(f"{_badge('result', 'Summary:')} {summary}")
