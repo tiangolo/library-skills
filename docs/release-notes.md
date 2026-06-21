@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.15 (2026-06-21)
+
 ### Features
 
 * ✨ Add skill to use library-skills, installable when using the `library-skills` CLI. PR [#134](https://github.com/tiangolo/library-skills/pull/134) by [@tiangolo](https://github.com/tiangolo).
