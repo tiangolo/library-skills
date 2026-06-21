@@ -8,6 +8,7 @@ from rich.console import Console
 from typer.testing import CliRunner
 
 import library_skills.cli as cli
+import library_skills.ui as ui
 from library_skills.cli import app
 from library_skills.installer import (
     TOOL_SKILL_MARKER,
@@ -1724,6 +1725,18 @@ def test_select_tool_skill_interactive_uses_checked_menu(monkeypatch):
 
 def test_get_rich_toolkit_returns_toolkit_instance():
     assert cli._get_rich_toolkit() is not None
+
+
+def test_ui_badge_fallback_status_and_summary(capsys):
+    assert ui._badge("unknown", "custom") == "[tag] custom [/]"
+    assert ui._styled_status("custom") == "custom"
+
+    ui.print_summary({"repaired": 1, "removed": 2})
+
+    output = capsys.readouterr().out
+    assert "Summary:" in output
+    assert "repaired: 1" in output
+    assert "removed: 2" in output
 
 
 def test_install_selected_continues_after_install_error(tmp_path):
