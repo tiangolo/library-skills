@@ -291,8 +291,6 @@ function isDirectory(path: string): boolean {
 export const testing = {
 	getSymlinkTarget,
 	isDirectory,
-  isManagedToolSkillMarker,
 	isSymlink,
 	resolveSymlink,
-  targetForPath,
 };

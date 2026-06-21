@@ -700,12 +700,6 @@ def _install_selected(
     return installed_count
 
 
-def _tool_skill_targets(
-    *, project_root: Path, include_claude: bool
-) -> list[InstallTarget]:
-    return get_target_dirs(project_root, include_claude=include_claude)
-
-
 def _sync_tool_skill(
     *,
     targets: list[InstallTarget],
@@ -793,9 +787,8 @@ def _sync(
         if tool_skill:
             console.print()
             _, tool_failed = _sync_tool_skill(
-                targets=_tool_skill_targets(
-                    project_root=context.project_root,
-                    include_claude=include_claude,
+                targets=get_target_dirs(
+                    context.project_root, include_claude=include_claude
                 ),
                 project_root=context.project_root,
                 check=True,
@@ -885,9 +878,8 @@ def _sync(
     elif tool_skill:
         console.print()
         tool_skill_changes, tool_failed = _sync_tool_skill(
-            targets=_tool_skill_targets(
-                project_root=context.project_root,
-                include_claude=include_claude,
+            targets=get_target_dirs(
+                context.project_root, include_claude=include_claude
             ),
             project_root=context.project_root,
             check=False,

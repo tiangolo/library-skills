@@ -740,16 +740,6 @@ function installSelected({
 	return installedCount;
 }
 
-function toolSkillTargets({
-	projectRoot,
-	includeClaude,
-}: {
-	projectRoot: string;
-	includeClaude?: boolean;
-}): InstallTarget[] {
-	return getTargetDirs(projectRoot, { includeClaude });
-}
-
 function getToolSkillTemplate(): string {
 	return readFileSync(
 		new URL("../src/tool_skill/SKILL.md", import.meta.url),
@@ -864,8 +854,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 		if (options.toolSkill) {
 			console.log();
 			const toolResult = syncToolSkill({
-				targets: toolSkillTargets({
-					projectRoot: context.projectRoot,
+				targets: getTargetDirs(context.projectRoot, {
 					includeClaude: options.claude,
 				}),
 				projectRoot: context.projectRoot,
@@ -965,8 +954,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 	} else if (options.toolSkill) {
 		console.log();
 		const toolResult = syncToolSkill({
-			targets: toolSkillTargets({
-				projectRoot: context.projectRoot,
+			targets: getTargetDirs(context.projectRoot, {
 				includeClaude: options.claude,
 			}),
 			projectRoot: context.projectRoot,
@@ -1272,7 +1260,6 @@ export const testing = {
 	syncToolSkill,
 	syncTargetDirs,
 	sync,
-	toolSkillTargets,
 	topLevelSkills,
 	displayPath,
 	printTable,
