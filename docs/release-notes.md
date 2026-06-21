@@ -9,6 +9,7 @@
 
 ### Internal
 
+* ⬆ Bump pydantic-settings from 2.14.1 to 2.14.2. PR [#114](https://github.com/tiangolo/library-skills/pull/114) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump the python-packages group with 4 updates. PR [#146](https://github.com/tiangolo/library-skills/pull/146) by [@dependabot[bot]](https://github.com/apps/dependabot).
 
 ## 0.0.18 (2026-06-21)
