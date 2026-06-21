@@ -374,13 +374,9 @@ def test_scan_python_distributions_warns_for_invalid_skill_files(
 
     result = scan_python_distributions(site_packages)
 
-    if expected_warning:
-        assert result.skills == []
-        assert len(result.warnings) == 1
-        assert expected_warning in result.warnings[0]
-    else:
-        assert [skill.name for skill in result.skills] == ["demo-skill"]
-        assert result.warnings == []
+    assert result.skills == []
+    assert len(result.warnings) == 1
+    assert expected_warning in result.warnings[0]
 
 
 def test_scan_python_distributions_warns_when_skill_file_is_not_utf8(tmp_path):
