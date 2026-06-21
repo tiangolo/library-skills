@@ -8,9 +8,6 @@ from rich_toolkit.styles import MinimalStyle
 
 RICH_THEME = {
     "active": "green",
-    "action.install": "bold green",
-    "action.remove": "bold red",
-    "action.repair": "bold blue",
     "badge.action.install": "bold white on green",
     "badge.action.remove": "bold white on red",
     "badge.action.repair": "bold white on blue",
@@ -77,10 +74,6 @@ def print_warning(message: str, *, console: Console | None = None) -> None:
     _console(console).print(f"{_badge('warning', 'Warning:')} {message}")
 
 
-def print_error(message: str, *, console: Console | None = None) -> None:
-    _console(console).print(f"{_badge('warning', 'Error:')} {message}")
-
-
 def print_hint(message: str, *, console: Console | None = None) -> None:
     _console(console).print(f"{_badge('hint', 'Tip:')} {message}")
 
@@ -93,15 +86,15 @@ def print_action_header(
     action: str, *, console: Console | None = None, before: bool = True
 ) -> None:
     labels = {
-        "install": ("action.install", "Install new skills"),
-        "repair": ("action.repair", "Repair installed skills"),
-        "remove": ("action.remove", "Remove stale skills"),
+        "install": "Install new skills",
+        "repair": "Repair installed skills",
+        "remove": "Remove stale skills",
     }
-    style, label = labels[action]
+    label = labels[action]
     target_console = _console(console)
     if before:
         target_console.print()
-    target_console.print(f"{_badge(f'action.{action}', label, fallback=style)}")
+    target_console.print(f"{_badge(f'action.{action}', label)}")
 
 
 def print_warnings(warnings: list[str], *, console: Console | None = None) -> None:
@@ -174,10 +167,10 @@ def print_skipped(name: str, reason: str, *, console: Console | None = None) -> 
     )
 
 
-def _badge(kind: str, label: str, *, fallback: str | None = None) -> str:
+def _badge(kind: str, label: str) -> str:
     style = f"badge.{kind}"
     if style not in RICH_THEME:
-        style = fallback or "tag"
+        style = "tag"
     return f"[{style}] {label} [/]"
 
 
