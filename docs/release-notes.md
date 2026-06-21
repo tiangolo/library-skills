@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.17 (2026-06-21)
+
 ### Features
 
 * 💄 Improve terminal interface style. PR [#141](https://github.com/tiangolo/library-skills/pull/141) by [@tiangolo](https://github.com/tiangolo).
