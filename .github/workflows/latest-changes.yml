@@ -16,8 +16,8 @@ on:
         required: false
         default: 'false'
 
-permissions: {}
 
+permissions: {}
 jobs:
   latest-changes:
     runs-on: ubuntu-latest
