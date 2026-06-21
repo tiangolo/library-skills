@@ -190,6 +190,7 @@ jobs:
     if: always()
     needs:
       - coverage-combine
+      - test-python
       - test-typescript
     runs-on: ubuntu-latest
     steps:
