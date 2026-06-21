@@ -9,6 +9,7 @@
 
 ### Internal
 
+* ⬆ Bump the github-actions group across 1 directory with 2 updates. PR [#104](https://github.com/tiangolo/library-skills/pull/104) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump cryptography from 47.0.0 to 48.0.1. PR [#107](https://github.com/tiangolo/library-skills/pull/107) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump pydantic-settings from 2.14.1 to 2.14.2. PR [#114](https://github.com/tiangolo/library-skills/pull/114) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump the python-packages group with 4 updates. PR [#146](https://github.com/tiangolo/library-skills/pull/146) by [@dependabot[bot]](https://github.com/apps/dependabot).
