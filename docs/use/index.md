@@ -4,16 +4,16 @@ In your project directory, run:
 
 //// tab | Python uvx
 
-```console
-$ uvx library-skills
+```bash
+uvx library-skills
 ```
 
 ////
 
 //// tab | Node.js npx
 
-```console
-$ npx library-skills
+```bash
+npx library-skills
 ```
 
 ////
@@ -63,16 +63,16 @@ Run the default command again to reconcile installed skills with the libraries c
 
 //// tab | Python uvx
 
-```console
-$ uvx library-skills
+```bash
+uvx library-skills
 ```
 
 ////
 
 //// tab | Node.js npx
 
-```console
-$ npx library-skills
+```bash
+npx library-skills
 ```
 
 ////
@@ -95,16 +95,16 @@ For non-interactive cleanup of managed symlink drift, use:
 
 //// tab | Python uvx
 
-```console
-$ uvx library-skills --yes
+```bash
+uvx library-skills --yes
 ```
 
 ////
 
 //// tab | Node.js npx
 
-```console
-$ npx library-skills --yes
+```bash
+npx library-skills --yes
 ```
 
 ////
@@ -117,8 +117,8 @@ You can run the same check in a pre-commit hook to catch skill drift when depend
 
 Use [prek](https://github.com/j178/prek) to run pre-commit hooks:
 
-```console
-$ uvx prek install
+```bash
+uvx prek install
 ```
 
 Then add a local hook to `.pre-commit-config.yaml`:
@@ -178,16 +178,16 @@ For non-interactive installs, use `--claude` to install in `.claude/skills` too.
 
 //// tab | Python uvx
 
-```console
-$ uvx library-skills --claude
+```bash
+uvx library-skills --claude
 ```
 
 ////
 
 //// tab | Node.js npx
 
-```console
-$ npx library-skills --claude
+```bash
+npx library-skills --claude
 ```
 
 ////
@@ -202,15 +202,15 @@ But in the end, it's just a Python or JavaScript CLI package that you can instal
 
 For example, with pip:
 
-```console
-$ pip install library-skills
-$ library-skills
+```bash
+pip install library-skills
+library-skills
 ```
 
 Or with Bun:
 
-```console
-$ bunx library-skills
+```bash
+bunx library-skills
 ```
 
 ## Python and Node.js
@@ -229,16 +229,16 @@ For automation or scripts, use `scan --json` to get the discovered skills as mac
 
 //// tab | Python uvx
 
-```console
-$ uvx library-skills scan --json
+```bash
+uvx library-skills scan --json
 ```
 
 ////
 
 //// tab | Node.js npx
 
-```console
-$ npx library-skills scan --json
+```bash
+npx library-skills scan --json
 ```
 
 ////
@@ -249,16 +249,16 @@ Use `list --json` to include the current installation status too:
 
 //// tab | Python uvx
 
-```console
-$ uvx library-skills list --json
+```bash
+uvx library-skills list --json
 ```
 
 ////
 
 //// tab | Node.js npx
 
-```console
-$ npx library-skills list --json
+```bash
+npx library-skills list --json
 ```
 
 ////

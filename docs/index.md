@@ -42,14 +42,14 @@ Supporting libraries (e.g. [FastAPI](https://fastapi.tiangolo.com), [Streamlit](
 
 In Python, you can install them with:
 
-```console
-$ uvx library-skills
+```bash
+uvx library-skills
 ```
 
 In JavaScript/TypeScript, you can install them with:
 
-```console
-$ npx library-skills
+```bash
+npx library-skills
 ```
 
 This will scan the dependencies for the current project, find the installed libraries, and show the current skill installation status.
