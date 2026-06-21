@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Features
+
+* ✨ Explain that skills can be added to git. PR [#139](https://github.com/tiangolo/library-skills/pull/139) by [@tiangolo](https://github.com/tiangolo).
+
 ## 0.0.15 (2026-06-21)
 
 ### Features
