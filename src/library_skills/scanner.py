@@ -7,6 +7,8 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
+import yaml
+
 
 @dataclass(frozen=True)
 class Skill:
@@ -350,17 +352,22 @@ def _parse_skill_frontmatter(skill_md: Path) -> tuple[dict[str, str], str | None
         return {}, "unterminated YAML frontmatter"
 
     frontmatter = text[3:end]
+    try:
+        parsed = yaml.safe_load(frontmatter)
+    except yaml.YAMLError as e:
+        return {}, f"invalid YAML frontmatter ({e})"
+
+    if parsed is None:
+        parsed = {}
+
+    if not isinstance(parsed, dict):
+        return {}, "YAML frontmatter must be a mapping"
+
     metadata: dict[str, str] = {}
-    for line in frontmatter.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        key, sep, value = stripped.partition(":")
-        if not sep:
-            continue
-        key = key.strip()
-        if key in {"name", "description"}:
-            metadata[key] = value.strip().strip("\"'")
+    for key in ("name", "description"):
+        value = parsed.get(key)
+        if isinstance(value, str):
+            metadata[key] = value.strip()
 
     return metadata, None
 

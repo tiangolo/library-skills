@@ -42,7 +42,8 @@
     "@inquirer/checkbox": "^5.1.4",
     "commander": "^15.0.0",
     "csv-parse": "^6.2.1",
-    "smol-toml": "^1.6.1"
+    "smol-toml": "^1.6.1",
+    "yaml": "^2.4.2"
   },
   "repository": {
     "type": "git",
