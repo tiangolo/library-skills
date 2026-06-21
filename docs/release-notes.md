@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Internal
+
+* ➖ Drop support for CommonJS, this is a CLI, ESM is enough. PR [#133](https://github.com/tiangolo/library-skills/pull/133) by [@tiangolo](https://github.com/tiangolo).
+
 ## 0.0.14 (2026-06-20)
 
 ### Features
