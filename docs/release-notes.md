@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.19 (2026-06-21)
+
 ### Refactors
 
 * ♻️ Display the specific agent style (.agents, .claude) before removing. PR [#149](https://github.com/tiangolo/library-skills/pull/149) by [@tiangolo](https://github.com/tiangolo).
