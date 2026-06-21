@@ -900,8 +900,8 @@ def test_check_tool_skill_reports_missing_default_and_claude_targets(
 
     assert result.exit_code == 1
     assert "tool skill: missing" in result.output
-    assert ".agents/skills/library-skills" in result.output
-    assert ".claude/skills/library-skills" in result.output
+    assert str(Path(".agents") / "skills" / "library-skills") in result.output
+    assert str(Path(".claude") / "skills" / "library-skills") in result.output
 
 
 def test_tool_skill_installs_and_updates_copied_skill(tmp_path, monkeypatch):
