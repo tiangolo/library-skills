@@ -5,17 +5,11 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./ts/dist/index.d.ts",
-        "default": "./ts/dist/index.js"
-      },
-      "require": {
-        "types": "./ts/dist/index.d.cts",
-        "default": "./ts/dist/index.cjs"
-      }
+      "types": "./ts/dist/index.d.ts",
+      "default": "./ts/dist/index.js"
     }
   },
-  "main": "./ts/dist/index.cjs",
+  "main": "./ts/dist/index.js",
   "module": "./ts/dist/index.js",
   "types": "./ts/dist/index.d.ts",
   "bin": {
