@@ -2001,6 +2001,36 @@ test("CLI sync manages the copied tool skill explicitly", async () => {
   expect(existsSync(installed)).toBe(false);
 });
 
+test("CLI sync prompts for missing tool skill without new skills", async () => {
+  const project = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(project);
+  const topSkill = join(project, ".agents", "skills", "top-skill");
+  mkdirSync(dirname(topSkill), { recursive: true });
+  symlinkSync(
+    join(
+      project,
+      ".venv",
+      "lib",
+      "python3.12",
+      "site-packages",
+      "top_level_pkg",
+      ".agents",
+      "skills",
+      "top-skill",
+    ),
+    topSkill,
+    "dir",
+  );
+  vi.mocked(checkbox).mockResolvedValueOnce([true]);
+
+  await cliTesting.sync({});
+
+  const installed = join(project, ".agents", "skills", TOOL_SKILL_NAME);
+  expect(readFileSync(join(installed, "SKILL.md"), "utf-8")).toBe(
+    getToolSkillTemplate(),
+  );
+});
+
 test("CLI check tool skill covers default, Claude, and blocked targets", async () => {
   const project = writeProjectWithTopLevelAndTransitiveSkills();
   process.chdir(project);

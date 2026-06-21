@@ -806,6 +806,13 @@ function syncToolSkill({
 	return { changedCount, failed };
 }
 
+function toolSkillIsMissing(targets: InstallTarget[]): boolean {
+	return targets.some(
+		(target) => inspectToolSkill(target.path, getToolSkillTemplate()).status ===
+			"tool skill: missing",
+	);
+}
+
 async function sync(options: GlobalOptions): Promise<void> {
 	const context = getProjectContext();
 	const result = scanContext(context);
@@ -935,28 +942,11 @@ async function sync(options: GlobalOptions): Promise<void> {
 		});
 		console.log();
 		console.log(`Installed ${installedCount} skill target(s).`);
-		const shouldInstallToolSkill =
-			options.toolSkill ?? (!options.yes && (await selectToolSkillInteractive()));
-		if (shouldInstallToolSkill) {
-			console.log();
-			const toolResult = syncToolSkill({
-				targets,
-				projectRoot: context.projectRoot,
-				check: false,
-				explicit: options.toolSkill === true,
-			});
-			toolSkillChanges = toolResult.changedCount;
-			if (toolResult.failed) {
-				toolSkillFailed = true;
-				process.exitCode = 1;
-			}
-		}
-	} else if (options.toolSkill) {
+	}
+	if (options.toolSkill === true) {
 		console.log();
 		const toolResult = syncToolSkill({
-			targets: getTargetDirs(context.projectRoot, {
-				includeClaude: options.claude,
-			}),
+			targets,
 			projectRoot: context.projectRoot,
 			check: false,
 			explicit: true,
@@ -966,6 +956,20 @@ async function sync(options: GlobalOptions): Promise<void> {
 			toolSkillFailed = true;
 			process.exitCode = 1;
 		}
+	} else if (
+		options.toolSkill === undefined &&
+		!options.yes &&
+		toolSkillIsMissing(targets) &&
+		(await selectToolSkillInteractive())
+	) {
+		console.log();
+		const toolResult = syncToolSkill({
+			targets,
+			projectRoot: context.projectRoot,
+			check: false,
+			explicit: false,
+		});
+		toolSkillChanges = toolResult.changedCount;
 	}
 	if (
 		selectedRepairs.length === 0 &&

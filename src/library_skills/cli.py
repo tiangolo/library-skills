@@ -731,6 +731,13 @@ def _sync_tool_skill(
     return changed_count, failed
 
 
+def _tool_skill_is_missing(targets: list[InstallTarget]) -> bool:
+    return any(
+        inspect_tool_skill(target.path).status == "tool skill: missing"
+        for target in targets
+    )
+
+
 def _sync(
     *,
     include_claude: bool,
@@ -860,33 +867,25 @@ def _sync(
         )
         console.print()
         console.print(f"Installed {installed_count} skill target(s).")
-        should_install_tool_skill = (
-            tool_skill
-            if tool_skill is not None
-            else (not yes and _select_tool_skill_interactive())
-        )
-        if should_install_tool_skill:
-            console.print()
-            tool_skill_changes, tool_failed = _sync_tool_skill(
-                targets=targets,
-                project_root=context.project_root,
-                check=False,
-                explicit=tool_skill is True,
-            )
-            if tool_failed:
-                raise typer.Exit(1)
-    elif tool_skill:
+    if tool_skill is True:
         console.print()
         tool_skill_changes, tool_failed = _sync_tool_skill(
-            targets=get_target_dirs(
-                context.project_root, include_claude=include_claude
-            ),
+            targets=targets,
             project_root=context.project_root,
             check=False,
             explicit=True,
         )
         if tool_failed:
             raise typer.Exit(1)
+    elif tool_skill is None and not yes and _tool_skill_is_missing(targets):
+        if _select_tool_skill_interactive():
+            console.print()
+            tool_skill_changes, _ = _sync_tool_skill(
+                targets=targets,
+                project_root=context.project_root,
+                check=False,
+                explicit=False,
+            )
     if (
         not selected_repairs
         and not selected_removals

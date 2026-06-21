@@ -959,10 +959,38 @@ def test_default_sync_with_no_changes_reports_no_changes_needed(
     project = write_project(tmp_path, dependencies=[])
     monkeypatch.chdir(project)
 
-    result = runner.invoke(app)
+    with patch.object(cli, "_select_tool_skill_interactive", lambda: False):
+        result = runner.invoke(app)
 
     assert result.exit_code == 0
     assert "No changes needed." in result.output
+
+
+def test_default_sync_prompts_for_missing_tool_skill_without_new_skills(
+    tmp_path,
+    monkeypatch,
+):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    skill_dir = write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    installed_dir = project / ".agents" / "skills"
+    installed_dir.mkdir(parents=True)
+    (installed_dir / "demo-skill").symlink_to(skill_dir, target_is_directory=True)
+    monkeypatch.chdir(project)
+
+    with patch.object(cli, "_select_tool_skill_interactive", lambda: True):
+        result = runner.invoke(app)
+
+    tool_skill = project / ".agents" / "skills" / TOOL_SKILL_NAME
+    assert result.exit_code == 0
+    assert tool_skill.joinpath("SKILL.md").read_text(encoding="utf-8") == (
+        get_tool_skill_template()
+    )
 
 
 def test_list_json_reports_discovered_and_installed_skills(tmp_path, monkeypatch):
