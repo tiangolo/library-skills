@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+import library_skills.installer as installer
 from library_skills.installer import (
     CLAUDE_SKILLS_DIR,
     TOOL_SKILL_KIND,
@@ -15,6 +16,7 @@ from library_skills.installer import (
     get_existing_target_dirs,
     get_target_dirs,
     get_tool_skill_template,
+    get_tool_skill_version,
     inspect_tool_skill,
     install_skill,
     install_tool_skill,
@@ -276,6 +278,62 @@ def test_install_tool_skill_updates_managed_stale_copy(tmp_path):
     assert installed.joinpath("SKILL.md").read_text(encoding="utf-8") == (
         get_tool_skill_template()
     )
+
+
+def test_tool_skill_version_falls_back_when_distribution_is_missing(monkeypatch):
+    def missing_version(_distribution_name: str) -> str:
+        raise installer.metadata.PackageNotFoundError
+
+    monkeypatch.setattr(installer.metadata, "version", missing_version)
+
+    assert get_tool_skill_version() == "0.0.0"
+
+
+def test_inspect_tool_skill_reports_file_blocker(tmp_path):
+    target_dir = tmp_path / ".agents" / "skills"
+    target_dir.mkdir(parents=True)
+    (target_dir / TOOL_SKILL_NAME).write_text("not a directory", encoding="utf-8")
+
+    status = inspect_tool_skill(target_dir)
+
+    assert status.status == "tool skill: blocked by hand-authored directory"
+
+
+def test_inspect_tool_skill_classifies_claude_target(tmp_path):
+    target_dir = tmp_path / ".claude" / "skills"
+
+    status = inspect_tool_skill(target_dir)
+
+    assert status.target.name == "claude-compatible"
+
+
+def test_inspect_tool_skill_reports_stale_when_managed_skill_md_is_missing(tmp_path):
+    target_dir = tmp_path / ".agents" / "skills"
+    installed = target_dir / TOOL_SKILL_NAME
+    installed.mkdir(parents=True)
+    installed.joinpath(TOOL_SKILL_MARKER).write_text(
+        '{"kind":"tool-skill"}', encoding="utf-8"
+    )
+
+    status = inspect_tool_skill(target_dir)
+
+    assert status.status == "tool skill: stale"
+
+
+def test_inspect_tool_skill_reports_stale_when_managed_skill_md_is_invalid_utf8(
+    tmp_path,
+):
+    target_dir = tmp_path / ".agents" / "skills"
+    installed = target_dir / TOOL_SKILL_NAME
+    installed.mkdir(parents=True)
+    installed.joinpath(TOOL_SKILL_MARKER).write_text(
+        '{"kind":"tool-skill"}', encoding="utf-8"
+    )
+    installed.joinpath("SKILL.md").write_bytes(b"\xff")
+
+    status = inspect_tool_skill(target_dir)
+
+    assert status.status == "tool skill: stale"
 
 
 def test_install_tool_skill_refuses_hand_authored_directory(tmp_path):
