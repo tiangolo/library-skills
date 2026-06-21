@@ -20,3 +20,5 @@ internal:
       - all-globs-to-all-files:
         - '!docs/**'
         - '!pyproject.toml'
+        - '!src/**'
+        - '!ts/**'
