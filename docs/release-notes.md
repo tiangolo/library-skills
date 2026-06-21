@@ -2,6 +2,10 @@
 
 ## Latest Changes
 
+### Docs
+
+* 📝 Update docs fenced code blocks, do not use `console`, use `bash`, so that copying the commands is easier. PR [#151](https://github.com/tiangolo/library-skills/pull/151) by [@tiangolo](https://github.com/tiangolo).
+
 ## 0.0.19 (2026-06-21)
 
 ### Refactors
