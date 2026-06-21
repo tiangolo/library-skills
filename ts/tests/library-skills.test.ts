@@ -1056,11 +1056,23 @@ test("CLI scan defaults to top-level project dependencies", async () => {
 
   await createProgram().parseAsync(["node", "library-skills", "scan"]);
 
-  expect(log).toHaveBeenCalledWith("Target Python environment: .venv");
-  expect(log).toHaveBeenCalledWith(
-    expect.stringMatching(/^Site-packages: \.venv[/\\]/),
-  );
-  expect(log).toHaveBeenCalledWith("node_modules: node_modules");
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("Target Python environment") &&
+      String(message).includes(".venv"),
+    ),
+  ).toBe(true);
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("Site-packages") &&
+      String(message).includes(".venv"),
+    ),
+  ).toBe(true);
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("node_modules"),
+    ),
+  ).toBe(true);
   expect(log).toHaveBeenCalledWith(expect.stringContaining("Skill"));
   expect(log).toHaveBeenCalledWith(expect.stringContaining("top-skill"));
   expect(log).toHaveBeenCalledWith(expect.stringContaining("top-level-pkg"));
@@ -1198,8 +1210,18 @@ test("CLI human context prints uv workspace roots", async () => {
 
   await createProgram().parseAsync(["node", "library-skills", "scan"]);
 
-  expect(log).toHaveBeenCalledWith(`Workspace root: ${project}`);
-  expect(log).toHaveBeenCalledWith(`Workspace member: ${api}`);
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("Workspace root") &&
+      String(message).includes(project),
+    ),
+  ).toBe(true);
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("Workspace member") &&
+      String(message).includes(api),
+    ),
+  ).toBe(true);
 });
 
 test("CLI human context prints Node workspace roots", async () => {
@@ -1215,8 +1237,18 @@ test("CLI human context prints Node workspace roots", async () => {
 
   await createProgram().parseAsync(["node", "library-skills", "scan"]);
 
-  expect(log).toHaveBeenCalledWith(`Workspace root: ${project}`);
-  expect(log).toHaveBeenCalledWith(`Workspace member: ${api}`);
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("Workspace root") &&
+      String(message).includes(project),
+    ),
+  ).toBe(true);
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("Workspace member") &&
+      String(message).includes(api),
+    ),
+  ).toBe(true);
 });
 
 test("CLI scan from uv workspace root uses root and all member deps", async () => {
@@ -1568,6 +1600,10 @@ test("CLI helpers filter skills and classify installed statuses", () => {
     "----  -----",
     "demo  ok   ",
   ]);
+  log.mockClear();
+  cliTesting.printSummary({ repaired: 1, removed: 2 });
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("repaired: 1"));
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("removed: 2"));
 });
 
 test("CLI reconcile helpers cover interactive selection and missing removals", async () => {
@@ -1593,7 +1629,7 @@ test("CLI reconcile helpers cover interactive selection and missing removals", a
   await expect(cliTesting.selectStatusesInteractive([status], "repair")).resolves.toEqual([
     status,
   ]);
-  expect(log).toHaveBeenCalledWith(expect.stringContaining("Repair installed skills"));
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("repair"));
   await expect(cliTesting.selectStatusesInteractive([], "repair")).resolves.toEqual([]);
 
   expect(cliTesting.removeSelected({ statuses: [status], projectRoot: root })).toBe(0);
@@ -1703,7 +1739,12 @@ test("CLI install command covers interactive, copy, selected, and skipped instal
   expect(lstatSync(join(project, ".claude", "skills", "transitive-skill")).isDirectory()).toBe(true);
 
   await createProgram().parseAsync(["node", "library-skills", "install", "--yes", "--all"]);
-  expect(log).toHaveBeenCalledWith(expect.stringContaining("Skipped top-skill"));
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("Skipped") &&
+      String(message).includes("top-skill"),
+    ),
+  ).toBe(true);
 
   expect(() =>
     cliTesting.installSelected({
@@ -1841,7 +1882,7 @@ test("CLI remove command covers selected, interactive, and empty removals", asyn
 
   await createProgram().parseAsync(["node", "library-skills", "install", "--yes", "--all"]);
   await createProgram().parseAsync(["node", "library-skills", "remove", "top-skill"]);
-  expect(log).toHaveBeenCalledWith("Removed: top-skill (universal)");
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("top-skill (universal)"));
 
   vi.mocked(checkbox).mockImplementationOnce(async (prompt) => {
     const choice = prompt.choices[0].value;
@@ -1884,7 +1925,9 @@ test("CLI list and remove include existing Claude target without flag", async ()
   );
 
   await createProgram().parseAsync(["node", "library-skills", "remove", "top-skill"]);
-  expect(log).toHaveBeenCalledWith("Removed: top-skill (claude-compatible)");
+  expect(log).toHaveBeenCalledWith(
+    expect.stringContaining("top-skill (claude-compatible)"),
+  );
   expect(existsSync(join(project, ".claude", "skills", "top-skill"))).toBe(false);
 });
 

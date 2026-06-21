@@ -8,6 +8,7 @@ from rich.console import Console
 from typer.testing import CliRunner
 
 import library_skills.cli as cli
+import library_skills.ui as ui
 from library_skills.cli import app
 from library_skills.installer import (
     TOOL_SKILL_MARKER,
@@ -296,8 +297,9 @@ def test_scan_filters_to_top_level_dependencies_by_default(tmp_path, monkeypatch
     all_result = runner.invoke(app, ["scan", "--all"])
 
     assert result.exit_code == 0
-    assert "Target Python environment: .venv" in result.output
-    assert "Site-packages: .venv" in result.output
+    assert "Target Python environment" in result.output
+    assert ".venv" in result.output
+    assert "Site-packages" in result.output
     assert "top-skill" in result.output
     assert "transitive-skill" not in result.output
     assert all_result.exit_code == 0
@@ -570,8 +572,10 @@ def test_workspace_scan_prints_workspace_context(tmp_path, monkeypatch):
         result = runner.invoke(app, ["scan"])
 
     assert result.exit_code == 0
-    assert f"Workspace root: {project}" in result.output
-    assert f"Workspace member: {api.resolve()}" in result.output
+    assert "Workspace root" in result.output
+    assert str(project) in result.output
+    assert "Workspace member" in result.output
+    assert str(api.resolve()) in result.output
 
 
 def test_node_workspace_scan_prints_workspace_context(tmp_path, monkeypatch):
@@ -584,8 +588,10 @@ def test_node_workspace_scan_prints_workspace_context(tmp_path, monkeypatch):
         result = runner.invoke(app, ["scan"])
 
     assert result.exit_code == 0
-    assert f"Workspace root: {project}" in result.output
-    assert f"Workspace member: {api.resolve()}" in result.output
+    assert "Workspace root" in result.output
+    assert str(project) in result.output
+    assert "Workspace member" in result.output
+    assert str(api.resolve()) in result.output
 
 
 def test_node_workspace_member_scan_uses_member_deps_and_root_node_modules(
@@ -744,8 +750,9 @@ def test_scan_includes_python_and_node_package_skills(tmp_path, monkeypatch):
     json_result = runner.invoke(app, ["scan", "--json", "--all"])
 
     assert result.exit_code == 0
-    assert "Target Python environment: .venv" in result.output
-    assert "node_modules: node_modules" in result.output
+    assert "Target Python environment" in result.output
+    assert ".venv" in result.output
+    assert "node_modules" in result.output
     assert "python-skill" in result.output
     assert "node-skill" in result.output
     assert "transitive-skill" not in result.output
@@ -1595,7 +1602,7 @@ def test_select_helpers_use_rich_toolkit(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkit([skill]))
 
     assert cli._select_skills_interactive([skill]) == [skill]
-    assert "Install new skills" in capsys.readouterr().out
+    assert "install" in capsys.readouterr().out
 
     monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkit([status]))
 
@@ -1652,7 +1659,7 @@ def test_reconcile_helpers_cover_selection_skip_and_not_found(
     monkeypatch.setattr(cli, "Menu", FakeMenu)
 
     assert cli._select_statuses_interactive([status], action="repair") == [status]
-    assert "Repair installed skills" in capsys.readouterr().out
+    assert "repair" in capsys.readouterr().out
     assert cli._select_statuses_interactive([], action="repair") == []
 
     skipped = cli.InstalledStatus(
@@ -1718,6 +1725,18 @@ def test_select_tool_skill_interactive_uses_checked_menu(monkeypatch):
 
 def test_get_rich_toolkit_returns_toolkit_instance():
     assert cli._get_rich_toolkit() is not None
+
+
+def test_ui_badge_fallback_status_and_summary(capsys):
+    assert ui._badge("unknown", "custom") == "[tag] custom [/]"
+    assert ui._styled_status("custom") == "custom"
+
+    ui.print_summary({"repaired": 1, "removed": 2})
+
+    output = capsys.readouterr().out
+    assert "Summary:" in output
+    assert "repaired: 1" in output
+    assert "removed: 2" in output
 
 
 def test_install_selected_continues_after_install_error(tmp_path):
