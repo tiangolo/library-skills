@@ -12,7 +12,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import type { Skill } from "./scanner.js";
 
 export const UNIVERSAL_SKILLS_DIR = ".agents/skills";
@@ -261,14 +261,7 @@ function isManagedToolSkillMarker(marker: string): boolean {
 
 function getSymlinkTarget({ source, dest }: { source: string; dest: string }): string {
   const relativeTarget = relative(dirname(resolve(dest)), source);
-  if (relativeTarget === "" || isAbsolute(relativeTarget)) {
-    return source;
-  }
-  return normalizeRelativeSymlinkTarget(relativeTarget);
-}
-
-function normalizeRelativeSymlinkTarget(relativeTarget: string): string {
-  return relativeTarget.replaceAll("\\", "/");
+  return relativeTarget === "" ? source : relativeTarget;
 }
 
 function resolveSymlink(path: string): string | null {
@@ -299,6 +292,5 @@ export const testing = {
 	getSymlinkTarget,
 	isDirectory,
 	isSymlink,
-	normalizeRelativeSymlinkTarget,
 	resolveSymlink,
 };

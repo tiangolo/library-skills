@@ -982,11 +982,6 @@ describe("installer", () => {
     expect(installerTesting.getSymlinkTarget({ source: root, dest: join(root, "agent") })).toBe(
       root,
     );
-    expect(
-      installerTesting.normalizeRelativeSymlinkTarget(
-        String.raw`..\..\node_modules\pkg\.agents\skills\agent`,
-      ),
-    ).toBe("../../node_modules/pkg/.agents/skills/agent");
     expect(installerTesting.resolveSymlink(join(root, "missing"))).toBeNull();
     expect(installerTesting.isSymlink(join(root, "missing"))).toBe(false);
     expect(installerTesting.isDirectory(join(root, "missing"))).toBe(false);
