@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.18 (2026-06-21)
+
 ### Fixes
 
 * 🐛 Fix parsing YAML multilines. PR [#143](https://github.com/tiangolo/library-skills/pull/143) by [@tiangolo](https://github.com/tiangolo).
