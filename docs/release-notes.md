@@ -8,6 +8,7 @@
 
 ### Internal
 
+* ✅ Fix test in Windows. PR [#137](https://github.com/tiangolo/library-skills/pull/137) by [@tiangolo](https://github.com/tiangolo).
 * 🔧 Update labeler rules, do not mark source code as `internal` by default. PR [#136](https://github.com/tiangolo/library-skills/pull/136) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Fix alls-green configuration, check for tests. PR [#135](https://github.com/tiangolo/library-skills/pull/135) by [@tiangolo](https://github.com/tiangolo).
 * ➖ Drop support for CommonJS, this is a CLI, ESM is enough. PR [#133](https://github.com/tiangolo/library-skills/pull/133) by [@tiangolo](https://github.com/tiangolo).
