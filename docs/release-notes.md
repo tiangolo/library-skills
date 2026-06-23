@@ -8,6 +8,7 @@
 
 ### Internal
 
+* ⬆️ Update issue-manager to 0.7.0. PR [#154](https://github.com/tiangolo/library-skills/pull/154) by [@tiangolo](https://github.com/tiangolo).
 * 🔒️ Add zizmor workflow security checks. PR [#152](https://github.com/tiangolo/library-skills/pull/152) by [@tiangolo](https://github.com/tiangolo).
 
 ## 0.0.19 (2026-06-21)
