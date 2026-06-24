@@ -2,10 +2,6 @@ name: pre-commit
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-
 env:
   # Forks and Dependabot don't have access to secrets
   HAS_SECRETS: ${{ secrets.PRE_COMMIT != '' }}
