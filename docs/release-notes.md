@@ -8,6 +8,7 @@
 
 ### Internal
 
+* ⬆️ Update issue-manager to 0.8.1. PR [#167](https://github.com/tiangolo/library-skills/pull/167) by [@tiangolo](https://github.com/tiangolo).
 * ⬆️ Update latest-changes to 0.6.1. PR [#166](https://github.com/tiangolo/library-skills/pull/166) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Simplify pull request workflow triggers. PR [#156](https://github.com/tiangolo/library-skills/pull/156) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Update issue-manager to 0.7.1. PR [#155](https://github.com/tiangolo/library-skills/pull/155) by [@tiangolo](https://github.com/tiangolo).
