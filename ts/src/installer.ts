@@ -106,18 +106,30 @@ export function getExistingTargetDirs(
 export function installSkill(
   skill: Skill,
   targetDir: string,
-  options: { copy?: boolean } = {},
+  options: { copy?: boolean; force?: boolean } = {},
 ): string {
   const dest = join(targetDir, skill.name);
   const source = resolve(skill.skillDir);
 
   if (existsSync(dest) || isSymlink(dest)) {
+    if (!isSymlink(dest) && resolve(dest) === source) {
+      // Destination already *is* the skill source (e.g. dogfeeding a skill
+      // from within its own package tree). Overwriting it would destroy the
+      // very files we're about to copy from.
+      return dest;
+    }
     if (isSymlink(dest)) {
       unlinkSync(dest);
     } else if (lstatSync(dest).isFile()) {
-      throw new InstallError(`Cannot overwrite non-symlink file: ${dest}`);
+      if (!options.force) {
+        throw new InstallError(`Cannot overwrite non-symlink file: ${dest}`);
+      }
+      unlinkSync(dest);
     } else if (lstatSync(dest).isDirectory()) {
-      throw new InstallError(`Cannot overwrite non-symlink directory: ${dest}`);
+      if (!options.force) {
+        throw new InstallError(`Cannot overwrite non-symlink directory: ${dest}`);
+      }
+      rmSync(dest, { recursive: true, force: true });
     }
   }
 
