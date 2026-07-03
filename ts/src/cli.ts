@@ -86,6 +86,8 @@ interface GlobalOptions {
 	check?: boolean;
 	all?: boolean;
 	skill?: string[];
+	discoverGlob?: boolean;
+	discoverRegex?: boolean;
 	copy?: boolean;
 	toolSkill?: boolean;
 }
@@ -95,6 +97,8 @@ interface InstallOptions {
 	yes?: boolean;
 	all?: boolean;
 	skill?: string[];
+	discoverGlob?: boolean;
+	discoverRegex?: boolean;
 	copy?: boolean;
 }
 
@@ -373,14 +377,131 @@ function deduplicateSkills(skills: Skill[]): Skill[] {
 	return unique;
 }
 
+enum SkillMatchMode {
+	Exact = "exact",
+	Glob = "glob",
+	Regex = "regex",
+}
+
+class SkillMatchError extends Error {}
+
+function resolveSkillMatchMode({
+	discoverGlob,
+	discoverRegex,
+}: {
+	discoverGlob?: boolean;
+	discoverRegex?: boolean;
+}): SkillMatchMode {
+	if (discoverGlob && discoverRegex) {
+		throw new SkillMatchError(
+			"--discover-glob and --discover-regex cannot be used together.",
+		);
+	}
+	if (discoverGlob) {
+		return SkillMatchMode.Glob;
+	}
+	if (discoverRegex) {
+		return SkillMatchMode.Regex;
+	}
+	return SkillMatchMode.Exact;
+}
+
+/** Translate a shell-style glob (`*`, `?`, `[seq]`) into a regex source string. */
+function globToRegExpSource(pattern: string): string {
+	let result = "";
+	let i = 0;
+	while (i < pattern.length) {
+		const char = pattern[i];
+		if (char === "*") {
+			result += ".*";
+			i++;
+		} else if (char === "?") {
+			result += ".";
+			i++;
+		} else if (char === "[") {
+			let j = i + 1;
+			let negate = false;
+			if (pattern[j] === "!" || pattern[j] === "^") {
+				negate = true;
+				j++;
+			}
+			let classBody = "";
+			if (pattern[j] === "]") {
+				classBody += "\\]";
+				j++;
+			}
+			while (j < pattern.length && pattern[j] !== "]") {
+				classBody += pattern[j] === "\\" ? "\\\\" : pattern[j];
+				j++;
+			}
+			if (j < pattern.length) {
+				result += `[${negate ? "^" : ""}${classBody}]`;
+				i = j + 1;
+			} else {
+				// Unterminated bracket: treat '[' literally, like fnmatch does.
+				result += "\\[";
+				i++;
+			}
+		} else {
+			result += char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+			i++;
+		}
+	}
+	return result;
+}
+
+function compileSkillPattern(
+	pattern: string,
+	matchMode: SkillMatchMode.Glob | SkillMatchMode.Regex,
+): RegExp {
+	const source =
+		matchMode === SkillMatchMode.Glob
+			? globToRegExpSource(pattern)
+			: `(?:${pattern})`;
+	try {
+		return new RegExp(`^${source}$`, "i");
+	} catch (error) {
+		throw new SkillMatchError(
+			`Invalid regular expression for --skill: ${JSON.stringify(pattern)} (${(error as Error).message})`,
+		);
+	}
+}
+
+/** Resolve --skill values (exact names, globs, or regexes) to matched skill names. */
+function resolveSelectedSkillNames(
+	availableNames: string[],
+	{
+		patterns,
+		matchMode,
+	}: {
+		patterns: string[];
+		matchMode: SkillMatchMode;
+	},
+): Set<string> {
+	if (patterns.length === 0) {
+		return new Set();
+	}
+	if (matchMode === SkillMatchMode.Exact) {
+		const patternSet = new Set(patterns);
+		return new Set(availableNames.filter((name) => patternSet.has(name)));
+	}
+
+	const compiled = patterns.map((pattern) => compileSkillPattern(pattern, matchMode));
+	return new Set(
+		availableNames.filter((name) => compiled.some((regex) => regex.test(name))),
+	);
+}
+
 function filterInstallableSkills({
 	skills,
 	selectedNames,
 	includeAll,
+	matchMode = SkillMatchMode.Exact,
 }: {
 	skills: Skill[];
 	selectedNames: string[];
 	includeAll: boolean;
+	matchMode?: SkillMatchMode;
 }): Skill[] {
 	const collisions = findCollisions(skills);
 	if (collisions.size > 0) {
@@ -391,7 +512,10 @@ function filterInstallableSkills({
 
 	const installable = skills.filter((skill) => !collisions.has(skill.name));
 	if (selectedNames.length > 0) {
-		const selected = new Set(selectedNames);
+		const selected = resolveSelectedSkillNames(
+			installable.map((skill) => skill.name),
+			{ patterns: selectedNames, matchMode },
+		);
 		return installable.filter((skill) => selected.has(skill.name));
 	}
 	return includeAll ? installable : [];
@@ -517,13 +641,17 @@ function printInstalledSkillsTable(
 	printStatusTable(installed, projectRoot);
 }
 
-async function selectSkillsInteractive(skills: Skill[]): Promise<Skill[]> {
+async function selectSkillsInteractive(
+	skills: Skill[],
+	{ preselectAll = false }: { preselectAll?: boolean } = {},
+): Promise<Skill[]> {
 	printActionHeader("install");
 	return checkbox<Skill>({
 		message: "Select skills to install (press Space to select, Enter to confirm):",
 		choices: skills.map((skill) => ({
 			name: `${skill.name} (${skill.packageName})`,
 			value: skill,
+			checked: preselectAll,
 		})),
 	});
 }
@@ -817,6 +945,21 @@ function toolSkillIsMissing(targets: InstallTarget[]): boolean {
 }
 
 async function sync(options: GlobalOptions): Promise<void> {
+	let matchMode: SkillMatchMode;
+	try {
+		matchMode = resolveSkillMatchMode({
+			discoverGlob: options.discoverGlob,
+			discoverRegex: options.discoverRegex,
+		});
+	} catch (error) {
+		if (error instanceof SkillMatchError) {
+			output.printWarning(error.message);
+			process.exitCode = 1;
+			return;
+		}
+		throw error;
+	}
+
 	const context = getProjectContext();
 	const result = scanContext(context);
 	let targets = syncTargetDirs({
@@ -905,12 +1048,32 @@ async function sync(options: GlobalOptions): Promise<void> {
 		removeSelected({ statuses: selectedRemovals, projectRoot: context.projectRoot });
 	}
 
-	let selected = filterInstallableSkills({
-		skills: candidateSkills,
-		selectedNames,
-		includeAll: Boolean(options.all),
-	});
-	if (
+	let selected: Skill[];
+	try {
+		selected = filterInstallableSkills({
+			skills: candidateSkills,
+			selectedNames,
+			includeAll: Boolean(options.all),
+			matchMode,
+		});
+	} catch (error) {
+		if (error instanceof SkillMatchError) {
+			output.printWarning(error.message);
+			process.exitCode = 1;
+			return;
+		}
+		throw error;
+	}
+	const patternMode = matchMode !== SkillMatchMode.Exact && selectedNames.length > 0;
+	if (patternMode) {
+		if (selected.length > 0 && !options.yes) {
+			selected = await selectSkillsInteractive(deduplicateSkills(selected), {
+				preselectAll: true,
+			});
+		} else if (selected.length === 0 && !options.yes) {
+			selected = await selectSkillsInteractive(candidateSkills);
+		}
+	} else if (
 		selected.length === 0 &&
 		!options.yes &&
 		selectedNames.length === 0 &&
@@ -1055,6 +1218,21 @@ function listCommand(options: ListOptions): void {
 }
 
 async function installCommand(options: InstallOptions): Promise<void> {
+	let matchMode: SkillMatchMode;
+	try {
+		matchMode = resolveSkillMatchMode({
+			discoverGlob: options.discoverGlob,
+			discoverRegex: options.discoverRegex,
+		});
+	} catch (error) {
+		if (error instanceof SkillMatchError) {
+			output.printWarning(error.message);
+			process.exitCode = 1;
+			return;
+		}
+		throw error;
+	}
+
 	const context = getProjectContext();
 	const result = scanContext(context);
 	const selectedNames = options.skill ?? [];
@@ -1065,12 +1243,28 @@ async function installCommand(options: InstallOptions): Promise<void> {
 	});
 
 	printWarnings(result.warnings);
-	let selected = filterInstallableSkills({
-		skills,
-		selectedNames,
-		includeAll: Boolean(options.all),
-	});
-	if (selected.length === 0 && !options.yes) {
+	let selected: Skill[];
+	try {
+		selected = filterInstallableSkills({
+			skills,
+			selectedNames,
+			includeAll: Boolean(options.all),
+			matchMode,
+		});
+	} catch (error) {
+		if (error instanceof SkillMatchError) {
+			output.printWarning(error.message);
+			process.exitCode = 1;
+			return;
+		}
+		throw error;
+	}
+	const patternMode = matchMode !== SkillMatchMode.Exact && selectedNames.length > 0;
+	if (selected.length > 0 && patternMode && !options.yes) {
+		selected = await selectSkillsInteractive(deduplicateSkills(selected), {
+			preselectAll: true,
+		});
+	} else if (selected.length === 0 && !options.yes) {
 		selected = await selectSkillsInteractive(skills);
 	}
 
@@ -1159,6 +1353,14 @@ export function createProgram(): Command {
 			collect,
 			[],
 		)
+		.option(
+			"--discover-glob",
+			"Treat --skill values as glob patterns matched against skill names",
+		)
+		.option(
+			"--discover-regex",
+			"Treat --skill values as regular expressions matched against skill names",
+		)
 		.action(async (options: GlobalOptions) => {
 			await sync(options);
 		});
@@ -1197,6 +1399,14 @@ export function createProgram(): Command {
 			"Install a specific discovered skill by name",
 			collect,
 			[],
+		)
+		.option(
+			"--discover-glob",
+			"Treat --skill values as glob patterns matched against skill names",
+		)
+		.option(
+			"--discover-regex",
+			"Treat --skill values as regular expressions matched against skill names",
 		)
 		.option("--copy", "Copy files instead of creating symlinks")
 		.action(async (options: InstallOptions) => {
@@ -1267,9 +1477,14 @@ export const testing = {
 	removeSelected,
 	repairSelected,
 	repairableStatuses,
+	resolveSkillMatchMode,
+	resolveSelectedSkillNames,
 	scanCommand,
+	selectSkillsInteractive,
 	selectStatusesInteractive,
 	selectToolSkillInteractive,
+	SkillMatchError,
+	SkillMatchMode,
 	syncToolSkill,
 	syncTargetDirs,
 	sync,

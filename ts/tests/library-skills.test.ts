@@ -1684,6 +1684,347 @@ test("CLI helpers filter skills and classify installed statuses", () => {
   expect(log).toHaveBeenCalledWith(expect.stringContaining("removed: 2"));
 });
 
+test("resolveSkillMatchMode rejects combining glob and regex discovery flags", () => {
+  expect(() =>
+    cliTesting.resolveSkillMatchMode({ discoverGlob: true, discoverRegex: true }),
+  ).toThrow(cliTesting.SkillMatchError);
+});
+
+test("resolveSkillMatchMode selects glob, regex, or exact", () => {
+  expect(cliTesting.resolveSkillMatchMode({})).toBe(cliTesting.SkillMatchMode.Exact);
+  expect(cliTesting.resolveSkillMatchMode({ discoverGlob: true })).toBe(
+    cliTesting.SkillMatchMode.Glob,
+  );
+  expect(cliTesting.resolveSkillMatchMode({ discoverRegex: true })).toBe(
+    cliTesting.SkillMatchMode.Regex,
+  );
+});
+
+test("resolveSelectedSkillNames exact mode is unchanged", () => {
+  const matched = cliTesting.resolveSelectedSkillNames(["api-skill", "other-skill"], {
+    patterns: ["api-skill"],
+    matchMode: cliTesting.SkillMatchMode.Exact,
+  });
+  expect(matched).toEqual(new Set(["api-skill"]));
+});
+
+test("resolveSelectedSkillNames glob mode is case-insensitive and full match", () => {
+  const names = ["api-skill", "api-tool", "other-skill"];
+  expect(
+    cliTesting.resolveSelectedSkillNames(names, {
+      patterns: ["API-*"],
+      matchMode: cliTesting.SkillMatchMode.Glob,
+    }),
+  ).toEqual(new Set(["api-skill", "api-tool"]));
+  // A glob must match the entire name, not just a substring.
+  expect(
+    cliTesting.resolveSelectedSkillNames(names, {
+      patterns: ["api"],
+      matchMode: cliTesting.SkillMatchMode.Glob,
+    }),
+  ).toEqual(new Set());
+});
+
+test("resolveSelectedSkillNames regex mode is case-insensitive and full match", () => {
+  const names = ["api-skill", "api-tool", "other-skill"];
+  expect(
+    cliTesting.resolveSelectedSkillNames(names, {
+      patterns: ["API-.*"],
+      matchMode: cliTesting.SkillMatchMode.Regex,
+    }),
+  ).toEqual(new Set(["api-skill", "api-tool"]));
+  // A regex must match the entire name, not just a substring.
+  expect(
+    cliTesting.resolveSelectedSkillNames(names, {
+      patterns: ["api"],
+      matchMode: cliTesting.SkillMatchMode.Regex,
+    }),
+  ).toEqual(new Set());
+});
+
+test("resolveSelectedSkillNames rejects an invalid regex pattern", () => {
+  expect(() =>
+    cliTesting.resolveSelectedSkillNames(["api-skill"], {
+      patterns: ["("],
+      matchMode: cliTesting.SkillMatchMode.Regex,
+    }),
+  ).toThrow(cliTesting.SkillMatchError);
+});
+
+test("filterInstallableSkills glob mode matches and still skips collisions", () => {
+  const api = makeSkill({ name: "api-skill", skillDir: "/skills/api-skill" });
+  const tool = makeSkill({ name: "api-tool", skillDir: "/skills/api-tool" });
+  const other = makeSkill({ name: "other-skill", skillDir: "/skills/other-skill" });
+  const dupA = makeSkill({ name: "dup-skill", skillDir: "/skills/dup-a" });
+  const dupB = makeSkill({ name: "dup-skill", skillDir: "/skills/dup-b" });
+
+  const selected = cliTesting.filterInstallableSkills({
+    skills: [api, tool, other, dupA, dupB],
+    selectedNames: ["api-*", "dup-*"],
+    includeAll: false,
+    matchMode: cliTesting.SkillMatchMode.Glob,
+  });
+
+  expect(selected.map((skill) => skill.name).sort()).toEqual(["api-skill", "api-tool"]);
+});
+
+test("filterInstallableSkills regex mode matches", () => {
+  const api = makeSkill({ name: "api-skill", skillDir: "/skills/api-skill" });
+  const tool = makeSkill({ name: "api-tool", skillDir: "/skills/api-tool" });
+  const other = makeSkill({ name: "other-skill", skillDir: "/skills/other-skill" });
+
+  const selected = cliTesting.filterInstallableSkills({
+    skills: [api, tool, other],
+    selectedNames: ["^api-.*$"],
+    includeAll: false,
+    matchMode: cliTesting.SkillMatchMode.Regex,
+  });
+
+  expect(selected.map((skill) => skill.name).sort()).toEqual(["api-skill", "api-tool"]);
+});
+
+function writeGlobTestProject(skillNames: string[]): string {
+  const project = tempDir();
+  const sitePackages = join(project, ".venv", "lib", "python3.12", "site-packages");
+  mkdirSync(sitePackages, { recursive: true });
+  writeFileSync(join(project, ".venv", "pyvenv.cfg"), "");
+  writeFileSync(join(project, "pyproject.toml"), "[project]\ndependencies = ['top-pkg']\n");
+  writeDistribution({
+    sitePackages,
+    distInfoName: "top_pkg-1.0.0.dist-info",
+    packageName: "top-pkg",
+    version: "1.0.0",
+    records: skillNames.map((name) => `top_pkg/.agents/skills/${name}/SKILL.md,,`),
+  });
+  for (const name of skillNames) {
+    writeSkill(
+      join(sitePackages, "top_pkg", ".agents", "skills", name),
+      name,
+      `${name} description.`,
+    );
+  }
+  return project;
+}
+
+test("CLI install --discover-glob installs all matches with --yes", async () => {
+  const project = writeGlobTestProject(["api-skill", "api-tool", "other-skill"]);
+  process.chdir(project);
+  mockConsole();
+
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "install",
+    "--skill",
+    "api-*",
+    "--discover-glob",
+    "--yes",
+    "--copy",
+  ]);
+
+  expect(existsSync(join(project, ".agents", "skills", "api-skill"))).toBe(true);
+  expect(existsSync(join(project, ".agents", "skills", "api-tool"))).toBe(true);
+  expect(existsSync(join(project, ".agents", "skills", "other-skill"))).toBe(false);
+});
+
+test("CLI install --discover-regex installs all matches with --yes", async () => {
+  const project = writeGlobTestProject(["api-skill", "api-tool", "other-skill"]);
+  process.chdir(project);
+  mockConsole();
+
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "install",
+    "--skill",
+    "^api-.*$",
+    "--discover-regex",
+    "--yes",
+    "--copy",
+  ]);
+
+  expect(existsSync(join(project, ".agents", "skills", "api-skill"))).toBe(true);
+  expect(existsSync(join(project, ".agents", "skills", "api-tool"))).toBe(true);
+  expect(existsSync(join(project, ".agents", "skills", "other-skill"))).toBe(false);
+});
+
+test("CLI install rejects combining --discover-glob and --discover-regex", async () => {
+  const project = writeGlobTestProject(["api-skill"]);
+  process.chdir(project);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "install",
+    "--skill",
+    "api-*",
+    "--discover-glob",
+    "--discover-regex",
+  ]);
+
+  expect(process.exitCode).toBe(1);
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("cannot be used together"),
+    ),
+  ).toBe(true);
+  process.exitCode = undefined;
+});
+
+test("CLI install rejects an invalid --discover-regex pattern", async () => {
+  const project = writeGlobTestProject(["api-skill"]);
+  process.chdir(project);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "install",
+    "--skill",
+    "(",
+    "--discover-regex",
+    "--yes",
+  ]);
+
+  expect(process.exitCode).toBe(1);
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("Invalid regular expression"),
+    ),
+  ).toBe(true);
+  process.exitCode = undefined;
+});
+
+test("CLI install --discover-glob shows precheck picker limited to matches, preselected", async () => {
+  const project = writeGlobTestProject(["api-skill", "api-tool", "other-skill"]);
+  process.chdir(project);
+  mockConsole();
+
+  let capturedNames: string[] = [];
+  let capturedChecked: boolean[] = [];
+  vi.mocked(checkbox)
+    .mockImplementationOnce(async (prompt) => {
+      capturedNames = prompt.choices.map((choice) => String(choice.name));
+      capturedChecked = prompt.choices.map((choice) => Boolean(choice.checked));
+      return prompt.choices.map((choice) => choice.value);
+    })
+    .mockResolvedValueOnce([{ name: "universal", path: join(project, ".agents", "skills") }]);
+
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "install",
+    "--skill",
+    "api-*",
+    "--discover-glob",
+    "--copy",
+  ]);
+
+  expect(capturedNames.sort()).toEqual(["api-skill (top-pkg)", "api-tool (top-pkg)"]);
+  expect(capturedChecked).toEqual([true, true]);
+  expect(existsSync(join(project, ".agents", "skills", "api-skill"))).toBe(true);
+  expect(existsSync(join(project, ".agents", "skills", "api-tool"))).toBe(true);
+});
+
+test("CLI install --discover-glob zero matches falls back to the full picker", async () => {
+  const project = writeGlobTestProject(["api-skill", "other-skill"]);
+  process.chdir(project);
+  const { log } = mockConsole();
+
+  let capturedNames: string[] = [];
+  vi.mocked(checkbox).mockImplementationOnce(async (prompt) => {
+    capturedNames = prompt.choices.map((choice) => String(choice.name));
+    return [];
+  });
+
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "install",
+    "--skill",
+    "zzz-*",
+    "--discover-glob",
+  ]);
+
+  expect(capturedNames.sort()).toEqual(["api-skill (top-pkg)", "other-skill (top-pkg)"]);
+  expect(log).toHaveBeenCalledWith("No skills selected.");
+});
+
+test("CLI default command --discover-glob installs all matches with --yes", async () => {
+  const project = writeGlobTestProject(["api-skill", "api-tool", "other-skill"]);
+  process.chdir(project);
+  mockConsole();
+
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "--skill",
+    "api-*",
+    "--discover-glob",
+    "--yes",
+    "--copy",
+  ]);
+
+  expect(existsSync(join(project, ".agents", "skills", "api-skill"))).toBe(true);
+  expect(existsSync(join(project, ".agents", "skills", "api-tool"))).toBe(true);
+  expect(existsSync(join(project, ".agents", "skills", "other-skill"))).toBe(false);
+});
+
+test("CLI default command --discover-glob precheck picker installs selected matches", async () => {
+  const project = writeGlobTestProject(["api-skill", "api-tool", "other-skill"]);
+  process.chdir(project);
+  mockConsole();
+
+  let capturedNames: string[] = [];
+  let capturedChecked: boolean[] = [];
+  vi.mocked(checkbox)
+    .mockImplementationOnce(async (prompt) => {
+      capturedNames = prompt.choices.map((choice) => String(choice.name));
+      capturedChecked = prompt.choices.map((choice) => Boolean(choice.checked));
+      return prompt.choices.map((choice) => choice.value);
+    })
+    .mockResolvedValueOnce([{ name: "universal", path: join(project, ".agents", "skills") }]);
+
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "--skill",
+    "api-*",
+    "--discover-glob",
+    "--copy",
+    "--no-tool-skill",
+  ]);
+
+  expect(capturedNames.sort()).toEqual(["api-skill (top-pkg)", "api-tool (top-pkg)"]);
+  expect(capturedChecked).toEqual([true, true]);
+  expect(existsSync(join(project, ".agents", "skills", "api-skill"))).toBe(true);
+  expect(existsSync(join(project, ".agents", "skills", "api-tool"))).toBe(true);
+});
+
+test("CLI default command --discover-glob zero matches falls back to the full picker", async () => {
+  const project = writeGlobTestProject(["api-skill", "other-skill"]);
+  process.chdir(project);
+  mockConsole();
+
+  let capturedNames: string[] = [];
+  vi.mocked(checkbox).mockImplementationOnce(async (prompt) => {
+    capturedNames = prompt.choices.map((choice) => String(choice.name));
+    return [];
+  });
+
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "--skill",
+    "zzz-*",
+    "--discover-glob",
+    "--no-tool-skill",
+  ]);
+
+  expect(capturedNames.sort()).toEqual(["api-skill (top-pkg)", "other-skill (top-pkg)"]);
+});
+
 test("CLI reconcile helpers cover interactive selection and missing removals", async () => {
   const root = tempDir();
   const target = { name: "universal", path: join(root, ".agents", "skills") };
