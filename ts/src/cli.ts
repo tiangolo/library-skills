@@ -957,6 +957,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 			process.exitCode = 1;
 			return;
 		}
+		/* v8 ignore next -- defensive rethrow; resolveSkillMatchMode only throws SkillMatchError. */
 		throw error;
 	}
 
@@ -1062,6 +1063,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 			process.exitCode = 1;
 			return;
 		}
+		/* v8 ignore next -- defensive rethrow; filterInstallableSkills only throws SkillMatchError. */
 		throw error;
 	}
 	const patternMode = matchMode !== SkillMatchMode.Exact && selectedNames.length > 0;
@@ -1230,6 +1232,7 @@ async function installCommand(options: InstallOptions): Promise<void> {
 			process.exitCode = 1;
 			return;
 		}
+		/* v8 ignore next -- defensive rethrow; resolveSkillMatchMode only throws SkillMatchError. */
 		throw error;
 	}
 
@@ -1257,6 +1260,7 @@ async function installCommand(options: InstallOptions): Promise<void> {
 			process.exitCode = 1;
 			return;
 		}
+		/* v8 ignore next -- defensive rethrow; filterInstallableSkills only throws SkillMatchError. */
 		throw error;
 	}
 	const patternMode = matchMode !== SkillMatchMode.Exact && selectedNames.length > 0;

@@ -1708,6 +1708,65 @@ test("resolveSelectedSkillNames exact mode is unchanged", () => {
   expect(matched).toEqual(new Set(["api-skill"]));
 });
 
+test("resolveSelectedSkillNames returns an empty set for no patterns", () => {
+  const matched = cliTesting.resolveSelectedSkillNames(["api-skill", "other-skill"], {
+    patterns: [],
+    matchMode: cliTesting.SkillMatchMode.Glob,
+  });
+  expect(matched).toEqual(new Set());
+});
+
+test("resolveSelectedSkillNames glob mode supports ? wildcards", () => {
+  const matched = cliTesting.resolveSelectedSkillNames(["api-skill", "api-tool"], {
+    patterns: ["api-?kill"],
+    matchMode: cliTesting.SkillMatchMode.Glob,
+  });
+  expect(matched).toEqual(new Set(["api-skill"]));
+});
+
+test("resolveSelectedSkillNames glob mode supports [seq] character classes", () => {
+  const names = ["api-skill", "api-tkill", "api-xkill"];
+  const matched = cliTesting.resolveSelectedSkillNames(names, {
+    patterns: ["api-[st]kill"],
+    matchMode: cliTesting.SkillMatchMode.Glob,
+  });
+  expect(matched).toEqual(new Set(["api-skill", "api-tkill"]));
+});
+
+test("resolveSelectedSkillNames glob mode supports negated [seq] character classes", () => {
+  const names = ["api-skill", "api-tkill"];
+  expect(
+    cliTesting.resolveSelectedSkillNames(names, {
+      patterns: ["api-[!s]kill"],
+      matchMode: cliTesting.SkillMatchMode.Glob,
+    }),
+  ).toEqual(new Set(["api-tkill"]));
+  expect(
+    cliTesting.resolveSelectedSkillNames(names, {
+      patterns: ["api-[^s]kill"],
+      matchMode: cliTesting.SkillMatchMode.Glob,
+    }),
+  ).toEqual(new Set(["api-tkill"]));
+});
+
+test("resolveSelectedSkillNames glob mode supports a leading ] inside a character class", () => {
+  const names = ["a]c", "abc", "axc"];
+  const matched = cliTesting.resolveSelectedSkillNames(names, {
+    patterns: ["a[]b]c"],
+    matchMode: cliTesting.SkillMatchMode.Glob,
+  });
+  expect(matched).toEqual(new Set(["a]c", "abc"]));
+});
+
+test("resolveSelectedSkillNames glob mode treats an unterminated [ literally", () => {
+  const names = ["api-[skill", "api-skill"];
+  const matched = cliTesting.resolveSelectedSkillNames(names, {
+    patterns: ["api-[skill"],
+    matchMode: cliTesting.SkillMatchMode.Glob,
+  });
+  expect(matched).toEqual(new Set(["api-[skill"]));
+});
+
 test("resolveSelectedSkillNames glob mode is case-insensitive and full match", () => {
   const names = ["api-skill", "api-tool", "other-skill"];
   expect(
@@ -1949,6 +2008,52 @@ test("CLI install --discover-glob zero matches falls back to the full picker", a
 
   expect(capturedNames.sort()).toEqual(["api-skill (top-pkg)", "other-skill (top-pkg)"]);
   expect(log).toHaveBeenCalledWith("No skills selected.");
+});
+
+test("CLI default command rejects combining --discover-glob and --discover-regex", async () => {
+  const project = writeGlobTestProject(["api-skill"]);
+  process.chdir(project);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "--skill",
+    "api-*",
+    "--discover-glob",
+    "--discover-regex",
+  ]);
+
+  expect(process.exitCode).toBe(1);
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("cannot be used together"),
+    ),
+  ).toBe(true);
+  process.exitCode = undefined;
+});
+
+test("CLI default command rejects an invalid --discover-regex pattern", async () => {
+  const project = writeGlobTestProject(["api-skill"]);
+  process.chdir(project);
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync([
+    "node",
+    "library-skills",
+    "--skill",
+    "(",
+    "--discover-regex",
+    "--yes",
+  ]);
+
+  expect(process.exitCode).toBe(1);
+  expect(
+    log.mock.calls.some(([message]) =>
+      String(message).includes("Invalid regular expression"),
+    ),
+  ).toBe(true);
+  process.exitCode = undefined;
 });
 
 test("CLI default command --discover-glob installs all matches with --yes", async () => {

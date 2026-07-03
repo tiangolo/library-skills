@@ -1851,6 +1851,15 @@ def test_resolve_selected_skill_names_exact_mode_is_unchanged():
     assert matched == {"api-skill"}
 
 
+def test_resolve_selected_skill_names_returns_empty_set_for_no_patterns():
+    matched = cli._resolve_selected_skill_names(
+        ["api-skill", "other-skill"],
+        patterns=[],
+        match_mode=cli.SkillMatchMode.GLOB,
+    )
+    assert matched == set()
+
+
 def test_resolve_selected_skill_names_glob_mode_is_case_insensitive_and_full_match():
     names = ["api-skill", "api-tool", "other-skill"]
 
