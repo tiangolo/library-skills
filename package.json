@@ -32,7 +32,7 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^26.0.1",
     "@vitest/coverage-v8": "^4.1.5",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
