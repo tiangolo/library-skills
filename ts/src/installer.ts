@@ -90,44 +90,55 @@ export class ToolSkillError extends Error {
 
 export function getTargetDirs(
   projectRoot: string,
-  options: { includeClaude?: boolean } = {},
+  options: { includeClaude?: boolean; includeKiro?: boolean } = {},
 ): InstallTarget[] {
   const targets: InstallTarget[] = [
     { name: "universal", path: join(projectRoot, UNIVERSAL_SKILLS_DIR) },
   ];
   if (options.includeClaude) {
     targets.push({
-      name: "claude-compatible",
-      path: join(projectRoot, CLAUDE_SKILLS_DIR),
+      name: FRAMEWORKS.claude.name,
+      path: join(projectRoot, FRAMEWORKS.claude.skillsDir),
+    });
+  }
+  if (options.includeKiro) {
+    targets.push({
+      name: FRAMEWORKS.kiro.name,
+      path: join(projectRoot, FRAMEWORKS.kiro.skillsDir),
     });
   }
   return targets;
 }
 
 export function getAllTargetDirs(projectRoot: string): InstallTarget[] {
-  return getTargetDirs(projectRoot, { includeClaude: true });
+  return getTargetDirs(projectRoot, { includeClaude: true, includeKiro: true });
 }
 
 export function getDefaultInstallTargetDirs(projectRoot: string): InstallTarget[] {
-  const [universal, claude] = getAllTargetDirs(projectRoot);
-
+  const targets = getAllTargetDirs(projectRoot);
+  const byName = new Map(targets.map((target) => [target.name, target]));
   const selected: InstallTarget[] = [];
+
   if (existsSync(join(projectRoot, ".agents"))) {
-    selected.push(universal);
+    const universal = byName.get("universal");
+    if (universal) selected.push(universal);
   }
-  if (existsSync(join(projectRoot, ".claude"))) {
-    selected.push(claude);
+  for (const fw of Object.values(FRAMEWORKS)) {
+    if (existsSync(join(projectRoot, fw.detectorDir))) {
+      const target = byName.get(fw.name);
+      if (target) selected.push(target);
+    }
   }
 
-  return selected.length > 0 ? selected : [universal];
+  return selected.length > 0 ? selected : [byName.get("universal")!];
 }
 
 export function getExistingTargetDirs(
   projectRoot: string,
-  options: { includeClaude?: boolean } = {},
+  options: { includeClaude?: boolean; includeKiro?: boolean } = {},
 ): InstallTarget[] {
-  if (options.includeClaude) {
-    return getTargetDirs(projectRoot, { includeClaude: true });
+  if (options.includeClaude || options.includeKiro) {
+    return getTargetDirs(projectRoot, options);
   }
   return getAllTargetDirs(projectRoot).filter((target) => isDirectory(target.path));
 }
@@ -274,9 +285,12 @@ export function listInstalledSkills(targetDir: string): InstalledSkill[] {
 }
 
 function targetForPath(targetDir: string): InstallTarget {
-  return targetDir.endsWith(CLAUDE_SKILLS_DIR)
-    ? { name: "claude-compatible", path: targetDir }
-    : { name: "universal", path: targetDir };
+  for (const fw of Object.values(FRAMEWORKS)) {
+    if (targetDir.endsWith(fw.skillsDir)) {
+      return { name: fw.name, path: targetDir };
+    }
+  }
+  return { name: "universal", path: targetDir };
 }
 
 function isManagedToolSkillMarker(marker: string): boolean {
