@@ -74,28 +74,39 @@ class ToolSkillStatus:
 
 
 def get_target_dirs(
-    project_root: Path, *, include_claude: bool = False
+    project_root: Path,
+    *,
+    include_claude: bool = False,
+    include_kiro: bool = False,
+    enabled_frameworks: set[str] | None = None,
 ) -> list[InstallTarget]:
     """Get project-level target directories.
 
-    The universal .agents/skills target is always included. Claude-compatible
+    The universal .agents/skills target is always included. Framework-compatible
     installs are additional and never replace the universal target.
     """
     targets = [
         InstallTarget(name="universal", path=project_root / UNIVERSAL_SKILLS_DIR)
     ]
+    
+    fw_keys = set(enabled_frameworks) if enabled_frameworks else set()
     if include_claude:
-        targets.append(
-            InstallTarget(
-                name="claude-compatible", path=project_root / CLAUDE_SKILLS_DIR
+        fw_keys.add("claude")
+    if include_kiro:
+        fw_keys.add("kiro")
+
+    for key in sorted(fw_keys):
+        if key in FRAMEWORKS:
+            fw = FRAMEWORKS[key]
+            targets.append(
+                InstallTarget(name=fw.name, path=project_root / fw.skills_dir)
             )
-        )
     return targets
 
 
 def get_all_target_dirs(project_root: Path) -> list[InstallTarget]:
     """Get all supported project-level target directories."""
-    return get_target_dirs(project_root, include_claude=True)
+    return get_target_dirs(project_root, enabled_frameworks=set(FRAMEWORKS.keys()))
 
 
 def get_default_install_target_dirs(project_root: Path) -> list[InstallTarget]:
@@ -110,8 +121,10 @@ def get_default_install_target_dirs(project_root: Path) -> list[InstallTarget]:
 
     if (project_root / ".agents").exists():
         selected.append(by_name["universal"])
-    if (project_root / ".claude").exists():
-        selected.append(by_name["claude-compatible"])
+    
+    for fw in FRAMEWORKS.values():
+        if (project_root / fw.detector_dir).exists():
+            selected.append(by_name[fw.name])
 
     if not selected:
         selected.append(by_name["universal"])
@@ -119,16 +132,26 @@ def get_default_install_target_dirs(project_root: Path) -> list[InstallTarget]:
 
 
 def get_existing_target_dirs(
-    project_root: Path, *, include_claude: bool = False
+    project_root: Path,
+    *,
+    include_claude: bool = False,
+    include_kiro: bool = False,
+    enabled_frameworks: set[str] | None = None,
 ) -> list[InstallTarget]:
     """Get targets to inspect for existing installed skills.
 
-    Without explicit Claude compatibility, this only returns concrete skills
-    directories that already exist. With include_claude, preserve the legacy
-    explicit behavior of managing both known targets.
+    Without explicit compatibility options, this only returns concrete skills
+    directories that already exist. With options, preserve the explicit behavior
+    of managing those specific targets.
     """
+    fw_keys = set(enabled_frameworks) if enabled_frameworks else set()
     if include_claude:
-        return get_target_dirs(project_root, include_claude=True)
+        fw_keys.add("claude")
+    if include_kiro:
+        fw_keys.add("kiro")
+
+    if fw_keys:
+        return get_target_dirs(project_root, enabled_frameworks=fw_keys)
     return [
         target for target in get_all_target_dirs(project_root) if target.path.is_dir()
     ]
@@ -281,8 +304,10 @@ def install_tool_skill(target_dir: Path) -> Path:
 
 
 def _target_for_path(target_dir: Path) -> InstallTarget:
-    if target_dir.as_posix().endswith(CLAUDE_SKILLS_DIR):
-        return InstallTarget(name="claude-compatible", path=target_dir)
+    posix_path = target_dir.as_posix()
+    for fw in FRAMEWORKS.values():
+        if posix_path.endswith(fw.skills_dir):
+            return InstallTarget(name=fw.name, path=target_dir)
     return InstallTarget(name="universal", path=target_dir)
 
 
