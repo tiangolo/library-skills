@@ -15,6 +15,7 @@ from .deps import (
     get_workspace_top_level_deps,
 )
 from .installer import (
+    FRAMEWORKS,
     TOOL_SKILL_MARKER,
     TOOL_SKILL_NAME,
     InstallError,
@@ -172,16 +173,18 @@ def _display_path(path: Path | None, project_root: Path) -> str:
 def _target_prompt_name(target: InstallTarget) -> str:
     if target.name == "universal":
         return "Agents (.agents/skills)"
-    if target.name == "claude-compatible":
-        return "Claude Code (.claude/skills)"
+    for fw in FRAMEWORKS.values():
+        if target.name == fw.name:
+            return fw.display_name
     return target.name
 
 
 def _target_short_name(target: InstallTarget) -> str:
     if target.name == "universal":
         return "Agents"
-    if target.name == "claude-compatible":
-        return "Claude Code"
+    for fw in FRAMEWORKS.values():
+        if target.name == fw.name:
+            return fw.short_name
     return target.name
 
 
@@ -372,11 +375,11 @@ def _select_targets_interactive(
 def _select_install_targets(
     *,
     project_root: Path,
-    include_claude: bool,
+    enabled_frameworks: set[str],
     interactive: bool,
 ) -> list[InstallTarget]:
     if not interactive:
-        return get_target_dirs(project_root, include_claude=include_claude)
+        return get_target_dirs(project_root, enabled_frameworks=enabled_frameworks)
     return _select_targets_interactive(
         project_root=project_root,
         default_targets=get_default_install_target_dirs(project_root),
@@ -583,14 +586,14 @@ def _select_installed_skills_interactive(
 
 
 def _sync_target_dirs(
-    *, project_root: Path, include_claude: bool, yes: bool, check: bool
+    *, project_root: Path, enabled_frameworks: set[str], yes: bool, check: bool
 ) -> list[InstallTarget]:
     targets_by_name = {
         target.name: target for target in get_existing_target_dirs(project_root)
     }
     default_targets = (
-        get_target_dirs(project_root, include_claude=include_claude)
-        if yes or check or include_claude
+        get_target_dirs(project_root, enabled_frameworks=enabled_frameworks)
+        if yes or check or enabled_frameworks
         else get_default_install_target_dirs(project_root)
     )
     for target in default_targets:
@@ -760,7 +763,7 @@ def _tool_skill_is_missing(targets: list[InstallTarget]) -> bool:
 
 def _sync(
     *,
-    include_claude: bool,
+    enabled_frameworks: set[str],
     yes: bool,
     check: bool,
     include_all: bool,
@@ -772,7 +775,7 @@ def _sync(
     result = _scan_context(context)
     targets = _sync_target_dirs(
         project_root=context.project_root,
-        include_claude=include_claude,
+        enabled_frameworks=enabled_frameworks,
         yes=yes,
         check=check,
     )
@@ -816,7 +819,7 @@ def _sync(
             ui.print_line(console=console)
             _, tool_failed = _sync_tool_skill(
                 targets=get_target_dirs(
-                    context.project_root, include_claude=include_claude
+                    context.project_root, enabled_frameworks=enabled_frameworks
                 ),
                 project_root=context.project_root,
                 check=True,
@@ -875,8 +878,8 @@ def _sync(
     if selected:
         targets = _select_install_targets(
             project_root=context.project_root,
-            include_claude=include_claude,
-            interactive=not yes and not include_claude,
+            enabled_frameworks=enabled_frameworks,
+            interactive=not yes and not enabled_frameworks,
         )
         if not targets:
             ui.print_message("No installation targets selected.", console=console)
