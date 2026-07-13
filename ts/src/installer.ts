@@ -17,9 +17,38 @@ import type { Skill } from "./scanner.js";
 
 export const UNIVERSAL_SKILLS_DIR = ".agents/skills";
 export const CLAUDE_SKILLS_DIR = ".claude/skills";
+export const KIRO_SKILLS_DIR = ".kiro/skills";
 export const TOOL_SKILL_NAME = "library-skills";
 export const TOOL_SKILL_MARKER = ".library-skills.json";
 export const TOOL_SKILL_KIND = "tool-skill";
+
+export interface FrameworkConfig {
+  name: string;
+  displayName: string;
+  shortName: string;
+  skillsDir: string;
+  detectorDir: string;
+  cliFlag: string;
+}
+
+export const FRAMEWORKS: Record<string, FrameworkConfig> = {
+  claude: {
+    name: "claude-compatible",
+    displayName: "Claude Code (.claude/skills)",
+    shortName: "Claude Code",
+    skillsDir: ".claude/skills",
+    detectorDir: ".claude",
+    cliFlag: "--claude",
+  },
+  kiro: {
+    name: "kiro-compatible",
+    displayName: "Kiro (.kiro/skills)",
+    shortName: "Kiro",
+    skillsDir: ".kiro/skills",
+    detectorDir: ".kiro",
+    cliFlag: "--kiro",
+  },
+};
 
 export interface InstallTarget {
   name: string;

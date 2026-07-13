@@ -9,9 +9,40 @@ from .scanner import Skill
 
 UNIVERSAL_SKILLS_DIR = ".agents/skills"
 CLAUDE_SKILLS_DIR = ".claude/skills"
+KIRO_SKILLS_DIR = ".kiro/skills"
 TOOL_SKILL_NAME = "library-skills"
 TOOL_SKILL_MARKER = ".library-skills.json"
 TOOL_SKILL_KIND = "tool-skill"
+
+
+@dataclass(frozen=True)
+class FrameworkConfig:
+    name: str
+    display_name: str
+    short_name: str
+    skills_dir: str
+    detector_dir: str
+    cli_flag: str
+
+
+FRAMEWORKS = {
+    "claude": FrameworkConfig(
+        name="claude-compatible",
+        display_name="Claude Code (.claude/skills)",
+        short_name="Claude Code",
+        skills_dir=".claude/skills",
+        detector_dir=".claude",
+        cli_flag="--claude",
+    ),
+    "kiro": FrameworkConfig(
+        name="kiro-compatible",
+        display_name="Kiro (.kiro/skills)",
+        short_name="Kiro",
+        skills_dir=".kiro/skills",
+        detector_dir=".kiro",
+        cli_flag="--kiro",
+    ),
+}
 
 
 @dataclass(frozen=True)
