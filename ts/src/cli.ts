@@ -11,6 +11,7 @@ import {
 	getWorkspaceTopLevelDeps,
 } from "./deps.js";
 import {
+	FRAMEWORKS,
 	getAllTargetDirs,
 	getDefaultInstallTargetDirs,
 	getExistingTargetDirs,
@@ -241,8 +242,10 @@ function targetPromptName(target: InstallTarget): string {
 	if (target.name === "universal") {
 		return "Agents (.agents/skills)";
 	}
-	if (target.name === "claude-compatible") {
-		return "Claude Code (.claude/skills)";
+	for (const fw of Object.values(FRAMEWORKS)) {
+		if (target.name === fw.name) {
+			return fw.displayName;
+		}
 	}
 	return target.name;
 }
@@ -251,8 +254,10 @@ function targetShortName(target: InstallTarget): string {
 	if (target.name === "universal") {
 		return "Agents";
 	}
-	if (target.name === "claude-compatible") {
-		return "Claude Code";
+	for (const fw of Object.values(FRAMEWORKS)) {
+		if (target.name === fw.name) {
+			return fw.shortName;
+		}
 	}
 	return target.name;
 }
@@ -552,14 +557,16 @@ async function selectTargetsInteractive({
 async function selectInstallTargets({
 	projectRoot,
 	includeClaude,
+	includeKiro,
 	interactive,
 }: {
 	projectRoot: string;
 	includeClaude?: boolean;
+	includeKiro?: boolean;
 	interactive: boolean;
 }): Promise<InstallTarget[]> {
 	if (!interactive) {
-		return getTargetDirs(projectRoot, { includeClaude });
+		return getTargetDirs(projectRoot, { includeClaude, includeKiro });
 	}
 	return selectTargetsInteractive({
 		projectRoot,
@@ -601,11 +608,13 @@ async function selectInstalledSkillsInteractive(
 function syncTargetDirs({
 	projectRoot,
 	includeClaude,
+	includeKiro,
 	yes,
 	check,
 }: {
 	projectRoot: string;
 	includeClaude?: boolean;
+	includeKiro?: boolean;
 	yes?: boolean;
 	check?: boolean;
 }): InstallTarget[] {
@@ -613,8 +622,8 @@ function syncTargetDirs({
 		getExistingTargetDirs(projectRoot).map((target) => [target.name, target]),
 	);
 	const defaultTargets =
-		yes || check || includeClaude
-			? getTargetDirs(projectRoot, { includeClaude })
+		yes || check || includeClaude || includeKiro
+			? getTargetDirs(projectRoot, { includeClaude, includeKiro })
 			: getDefaultInstallTargetDirs(projectRoot);
 	for (const target of defaultTargets) {
 		targetsByName.set(target.name, target);
@@ -822,6 +831,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 	let targets = syncTargetDirs({
 		projectRoot: context.projectRoot,
 		includeClaude: options.claude,
+		includeKiro: options.kiro,
 		yes: options.yes,
 		check: options.check,
 	});
@@ -867,6 +877,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 			const toolResult = syncToolSkill({
 				targets: getTargetDirs(context.projectRoot, {
 					includeClaude: options.claude,
+					includeKiro: options.kiro,
 				}),
 				projectRoot: context.projectRoot,
 				check: true,
@@ -931,7 +942,8 @@ async function sync(options: GlobalOptions): Promise<void> {
 		targets = await selectInstallTargets({
 			projectRoot: context.projectRoot,
 			includeClaude: options.claude,
-			interactive: !options.yes && !options.claude,
+			includeKiro: options.kiro,
+			interactive: !options.yes && !options.claude && !options.kiro,
 		});
 		if (targets.length === 0) {
 			output.printMessage("No installation targets selected.");
