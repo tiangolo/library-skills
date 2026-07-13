@@ -931,6 +931,13 @@ def callback(
             help="Also install/manage skills in .claude/skills/ alongside .agents/skills/",
         ),
     ] = False,
+    include_kiro: Annotated[
+        bool,
+        typer.Option(
+            "--kiro",
+            help="Also install/manage skills in .kiro/skills/ alongside .agents/skills/",
+        ),
+    ] = False,
     yes: Annotated[
         bool, typer.Option("--yes", "-y", help="Skip confirmation prompts")
     ] = False,
@@ -960,8 +967,13 @@ def callback(
 ) -> None:
     """Discover and reconcile agent skills from installed library packages."""
     if ctx.invoked_subcommand is None:
+        enabled_frameworks = set()
+        if include_claude:
+            enabled_frameworks.add("claude")
+        if include_kiro:
+            enabled_frameworks.add("kiro")
         _sync(
-            include_claude=include_claude,
+            enabled_frameworks=enabled_frameworks,
             yes=yes,
             check=check,
             include_all=include_all,
@@ -1013,6 +1025,13 @@ def list_cmd(
             help="Also include .claude/skills/ alongside .agents/skills/",
         ),
     ] = False,
+    include_kiro: Annotated[
+        bool,
+        typer.Option(
+            "--kiro",
+            help="Also include .kiro/skills/ alongside .agents/skills/",
+        ),
+    ] = False,
     include_all: Annotated[
         bool,
         typer.Option("--all", help="Include skills from transitive dependencies"),
@@ -1026,8 +1045,13 @@ def list_cmd(
         skills=result.skills,
         include_all=include_all,
     )
+    enabled_frameworks = set()
+    if include_claude:
+        enabled_frameworks.add("claude")
+    if include_kiro:
+        enabled_frameworks.add("kiro")
     targets = get_existing_target_dirs(
-        context.project_root, include_claude=include_claude
+        context.project_root, enabled_frameworks=enabled_frameworks
     )
     statuses = _installed_statuses(targets=targets, skills=result.skills)
 
@@ -1065,6 +1089,13 @@ def install(
         typer.Option(
             "--claude",
             help="Also install skills in .claude/skills/ alongside .agents/skills/",
+        ),
+    ] = False,
+    include_kiro: Annotated[
+        bool,
+        typer.Option(
+            "--kiro",
+            help="Also install skills in .kiro/skills/ alongside .agents/skills/",
         ),
     ] = False,
     yes: Annotated[
@@ -1106,10 +1137,16 @@ def install(
         ui.print_message("No skills selected.", console=console)
         return
 
+    enabled_frameworks = set()
+    if include_claude:
+        enabled_frameworks.add("claude")
+    if include_kiro:
+        enabled_frameworks.add("kiro")
+
     targets = _select_install_targets(
         project_root=context.project_root,
-        include_claude=include_claude,
-        interactive=not yes and not include_claude,
+        enabled_frameworks=enabled_frameworks,
+        interactive=not yes and not enabled_frameworks,
     )
     if not targets:
         ui.print_message("No installation targets selected.", console=console)
@@ -1134,6 +1171,13 @@ def remove(
             help="Also remove from .claude/skills/ alongside .agents/skills/",
         ),
     ] = False,
+    include_kiro: Annotated[
+        bool,
+        typer.Option(
+            "--kiro",
+            help="Also remove from .kiro/skills/ alongside .agents/skills/",
+        ),
+    ] = False,
     yes: Annotated[
         bool, typer.Option("--yes", "-y", help="Skip interactive selection")
     ] = False,
@@ -1141,8 +1185,13 @@ def remove(
     """Remove installed symlinked skills."""
     context = _get_project_context()
     result = _scan_context(context)
+    enabled_frameworks = set()
+    if include_claude:
+        enabled_frameworks.add("claude")
+    if include_kiro:
+        enabled_frameworks.add("kiro")
     targets = get_existing_target_dirs(
-        context.project_root, include_claude=include_claude
+        context.project_root, enabled_frameworks=enabled_frameworks
     )
     statuses = _installed_statuses(targets=targets, skills=result.skills)
 

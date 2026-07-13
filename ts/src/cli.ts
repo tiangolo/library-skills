@@ -83,6 +83,7 @@ interface InstalledStatus {
 
 interface GlobalOptions {
 	claude?: boolean;
+	kiro?: boolean;
 	yes?: boolean;
 	check?: boolean;
 	all?: boolean;
@@ -93,6 +94,7 @@ interface GlobalOptions {
 
 interface InstallOptions {
 	claude?: boolean;
+	kiro?: boolean;
 	yes?: boolean;
 	all?: boolean;
 	skill?: string[];
@@ -103,6 +105,7 @@ interface ListOptions {
 	installed?: boolean;
 	json?: boolean;
 	claude?: boolean;
+	kiro?: boolean;
 	all?: boolean;
 }
 
@@ -1032,6 +1035,7 @@ function listCommand(options: ListOptions): void {
 	});
 	const targets = getExistingTargetDirs(context.projectRoot, {
 		includeClaude: options.claude,
+		includeKiro: options.kiro,
 	});
 	const statuses = installedStatuses({ targets, skills: result.skills });
 
@@ -1094,7 +1098,8 @@ async function installCommand(options: InstallOptions): Promise<void> {
 	const targets = await selectInstallTargets({
 		projectRoot: context.projectRoot,
 		includeClaude: options.claude,
-		interactive: !options.yes && !options.claude,
+		includeKiro: options.kiro,
+		interactive: !options.yes && !options.claude && !options.kiro,
 	});
 	if (targets.length === 0) {
 		output.printMessage("No installation targets selected.");
@@ -1113,12 +1118,13 @@ async function installCommand(options: InstallOptions): Promise<void> {
 
 async function removeCommand(
 	skillNames: string[],
-	options: { claude?: boolean; yes?: boolean },
+	options: { claude?: boolean; kiro?: boolean; yes?: boolean },
 ): Promise<void> {
 	const context = getProjectContext();
 	const result = scanContext(context);
 	const targets = getExistingTargetDirs(context.projectRoot, {
 		includeClaude: options.claude,
+		includeKiro: options.kiro,
 	});
 	const statuses = installedStatuses({ targets, skills: result.skills });
 
@@ -1159,6 +1165,7 @@ export function createProgram(): Command {
 			"Discover and reconcile agent skills from installed library packages.",
 		)
 		.option("--claude", "Also manage .claude/skills alongside .agents/skills")
+		.option("--kiro", "Also manage .kiro/skills alongside .agents/skills")
 		.option("-y, --yes", "Skip confirmation prompts")
 		.option("--check", "Validate only; exit 1 if installs drift")
 		.option("--all", "Install all newly discovered unmanaged skills")
@@ -1190,6 +1197,7 @@ export function createProgram(): Command {
 		.option("--installed", "Only show installed skills")
 		.option("--json", "Output as JSON")
 		.option("--claude", "Also include .claude/skills alongside .agents/skills")
+		.option("--kiro", "Also include .kiro/skills alongside .agents/skills")
 		.option("--all", "Include skills from transitive dependencies")
 		.action((options: ListOptions) => {
 			listCommand(options);
@@ -1201,6 +1209,10 @@ export function createProgram(): Command {
 		.option(
 			"--claude",
 			"Also install in .claude/skills alongside .agents/skills",
+		)
+		.option(
+			"--kiro",
+			"Also install in .kiro/skills alongside .agents/skills",
 		)
 		.option("-y, --yes", "Skip interactive selection")
 		.option("--all", "Install all newly discovered unmanaged skills")
@@ -1223,11 +1235,15 @@ export function createProgram(): Command {
 			"--claude",
 			"Also remove from .claude/skills alongside .agents/skills",
 		)
+		.option(
+			"--kiro",
+			"Also remove from .kiro/skills alongside .agents/skills",
+		)
 		.option("-y, --yes", "Skip interactive selection")
 		.action(
 			async (
 				skillNames: string[],
-				options: { claude?: boolean; yes?: boolean },
+				options: { claude?: boolean; kiro?: boolean; yes?: boolean },
 			) => {
 				await removeCommand(skillNames, options);
 			},
