@@ -9,6 +9,7 @@
 
 ### Internal
 
+* 👷 Fix zizmor checkout version comment. PR [#181](https://github.com/tiangolo/library-skills/pull/181) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Fix latest-changes checkout target. PR [#168](https://github.com/tiangolo/library-skills/pull/168) by [@tiangolo](https://github.com/tiangolo).
 * ⬆️ Update issue-manager to 0.8.1. PR [#167](https://github.com/tiangolo/library-skills/pull/167) by [@tiangolo](https://github.com/tiangolo).
 * ⬆️ Update latest-changes to 0.6.1. PR [#166](https://github.com/tiangolo/library-skills/pull/166) by [@tiangolo](https://github.com/tiangolo).
