@@ -162,6 +162,64 @@ def test_install_skill_refuses_to_overwrite_non_symlink_file(tmp_path):
         install_skill(skill, target_dir)
 
 
+def test_install_skill_force_overwrites_non_symlink_directory(tmp_path):
+    skill = make_skill(tmp_path)
+    target_dir = tmp_path / ".agents" / "skills"
+    stale = target_dir / skill.name
+    stale.mkdir(parents=True)
+    (stale / "stale.txt").write_text("stale", encoding="utf-8")
+
+    installed_path = install_skill(skill, target_dir, copy=True, force=True)
+
+    assert installed_path.is_dir()
+    assert not installed_path.is_symlink()
+    assert (installed_path / "SKILL.md").is_file()
+    assert not (installed_path / "stale.txt").exists()
+
+
+def test_install_skill_force_overwrites_non_symlink_file(tmp_path):
+    skill = make_skill(tmp_path)
+    target_dir = tmp_path / ".agents" / "skills"
+    target_dir.mkdir(parents=True)
+    (target_dir / skill.name).write_text("not managed", encoding="utf-8")
+
+    installed_path = install_skill(skill, target_dir, copy=True, force=True)
+
+    assert installed_path.is_dir()
+    assert (installed_path / "SKILL.md").is_file()
+
+
+def test_install_skill_force_does_not_delete_source_when_dest_is_source(tmp_path):
+    """A skill whose source dir *is* the destination must not be destroyed.
+
+    This can happen when a package's skill directory is discovered directly
+    inside the target install directory (e.g. dogfeeding within the project's
+    own .agents/skills tree).
+    """
+    target_dir = tmp_path / ".agents" / "skills"
+    target_dir.mkdir(parents=True)
+    skill_dir = target_dir / "demo-skill"
+    skill_dir.mkdir()
+    skill_md = skill_dir / "SKILL.md"
+    skill_md.write_text(
+        "---\nname: demo-skill\ndescription: Demo skill.\n---\n", encoding="utf-8"
+    )
+    skill = Skill(
+        name="demo-skill",
+        description="Demo skill.",
+        path=skill_md,
+        package_name="demo-package",
+        package_version="1.0.0",
+        skill_dir=skill_dir,
+    )
+
+    installed_path = install_skill(skill, target_dir, copy=True, force=True)
+
+    assert installed_path == skill_dir
+    assert skill_dir.is_dir()
+    assert (skill_dir / "SKILL.md").is_file()
+
+
 def test_install_skill_replaces_existing_symlink(tmp_path):
     skill = make_skill(tmp_path)
     target_dir = tmp_path / ".agents" / "skills"
