@@ -28,6 +28,7 @@ Agents bundle their own skills by including an `.agents/skills` directory. More 
 - Run `uvx library-skills --yes` or `npx library-skills --yes` to repair stale managed symlinks and remove orphaned managed symlinks non-interactively.
 - Add `--claude` when `.claude/skills` should also be managed.
 - Add `--skill NAME` to install a specific discovered skill by name.
+- Add `--discover-glob` or `--discover-regex` to treat `--skill` values as glob patterns (e.g. `--skill 'api-*' --discover-glob`) or regular expressions (e.g. `--skill '^api-.*$' --discover-regex`) instead of exact names. Matching is case-insensitive and must match the whole skill name. These two flags are mutually exclusive.
 
 ## Safety
 

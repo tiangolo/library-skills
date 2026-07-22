@@ -1,9 +1,12 @@
 import importlib
 import json
+import re
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+import typer
 from rich.console import Console
 from typer.testing import CliRunner
 
@@ -17,6 +20,12 @@ from library_skills.installer import (
 )
 
 runner = CliRunner()
+
+
+def plain_text(rich_output: str) -> str:
+    """Collapse Rich panel borders/line-wrapping so substring checks are stable."""
+    without_borders = re.sub(r"[\u2500-\u257F]", " ", rich_output)
+    return " ".join(without_borders.split())
 
 
 class FakeToolkit:
@@ -791,6 +800,232 @@ def test_install_skill_can_explicitly_select_transitive_dependency(
     assert result.exit_code == 0
     assert installed.is_symlink()
     assert installed.resolve() == transitive_skill.resolve()
+
+
+def test_install_discover_glob_installs_all_matches_with_yes(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=["top-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution(
+        site_packages,
+        dist_name="top-pkg",
+        package_dir="top_pkg",
+        skill_names=["api-skill", "api-tool", "other-skill"],
+    )
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(
+        app, ["install", "--skill", "api-*", "--discover-glob", "--yes", "--copy"]
+    )
+
+    assert result.exit_code == 0
+    assert (project / ".agents" / "skills" / "api-skill").is_dir()
+    assert (project / ".agents" / "skills" / "api-tool").is_dir()
+    assert not (project / ".agents" / "skills" / "other-skill").exists()
+
+
+def test_install_discover_regex_installs_all_matches_with_yes(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=["top-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution(
+        site_packages,
+        dist_name="top-pkg",
+        package_dir="top_pkg",
+        skill_names=["api-skill", "api-tool", "other-skill"],
+    )
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(
+        app,
+        ["install", "--skill", "^api-.*$", "--discover-regex", "--yes", "--copy"],
+    )
+
+    assert result.exit_code == 0
+    assert (project / ".agents" / "skills" / "api-skill").is_dir()
+    assert (project / ".agents" / "skills" / "api-tool").is_dir()
+    assert not (project / ".agents" / "skills" / "other-skill").exists()
+
+
+def test_install_discover_glob_and_regex_together_is_rejected(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=[])
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(
+        app,
+        ["install", "--skill", "api-*", "--discover-glob", "--discover-regex"],
+    )
+
+    normalized_output = plain_text(result.output)
+    assert result.exit_code != 0
+    assert "cannot be used together" in normalized_output
+
+
+def test_install_discover_regex_invalid_pattern_is_rejected(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=[])
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["install", "--skill", "(", "--discover-regex", "--yes"])
+
+    normalized_output = plain_text(result.output)
+    assert result.exit_code != 0
+    assert "Invalid regular expression" in normalized_output
+
+
+def test_install_discover_glob_without_yes_shows_precheck_picker_with_matches_only(
+    tmp_path, monkeypatch
+):
+    project = write_project(tmp_path, dependencies=["top-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution(
+        site_packages,
+        dist_name="top-pkg",
+        package_dir="top_pkg",
+        skill_names=["api-skill", "api-tool", "other-skill"],
+    )
+    monkeypatch.chdir(project)
+
+    captured = {}
+
+    def fake_select(skills, *, preselect_all=False):
+        captured["names"] = sorted(skill.name for skill in skills)
+        captured["preselect_all"] = preselect_all
+        return skills
+
+    with (
+        patch.object(cli, "_select_skills_interactive", fake_select),
+        patch.object(
+            cli,
+            "_select_targets_interactive",
+            lambda project_root, default_targets: default_targets,
+        ),
+    ):
+        result = runner.invoke(
+            app, ["install", "--skill", "api-*", "--discover-glob", "--copy"]
+        )
+
+    assert result.exit_code == 0
+    assert captured == {"names": ["api-skill", "api-tool"], "preselect_all": True}
+    assert (project / ".agents" / "skills" / "api-skill").is_dir()
+    assert (project / ".agents" / "skills" / "api-tool").is_dir()
+
+
+def test_install_discover_glob_zero_matches_falls_back_to_full_picker(
+    tmp_path, monkeypatch
+):
+    project = write_project(tmp_path, dependencies=["top-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution(
+        site_packages,
+        dist_name="top-pkg",
+        package_dir="top_pkg",
+        skill_names=["api-skill", "other-skill"],
+    )
+    monkeypatch.chdir(project)
+
+    captured = {}
+
+    def fake_select(skills, *, preselect_all=False):
+        captured["names"] = sorted(skill.name for skill in skills)
+        captured["preselect_all"] = preselect_all
+        return []
+
+    with patch.object(cli, "_select_skills_interactive", fake_select):
+        result = runner.invoke(app, ["install", "--skill", "zzz-*", "--discover-glob"])
+
+    assert result.exit_code == 0
+    assert captured["names"] == ["api-skill", "other-skill"]
+    assert captured["preselect_all"] is False
+    assert "No skills selected." in result.output
+
+
+def test_default_command_discover_glob_installs_all_matches_with_yes(
+    tmp_path, monkeypatch
+):
+    project = write_project(tmp_path, dependencies=["top-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution(
+        site_packages,
+        dist_name="top-pkg",
+        package_dir="top_pkg",
+        skill_names=["api-skill", "api-tool", "other-skill"],
+    )
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(
+        app, ["--skill", "api-*", "--discover-glob", "--yes", "--copy"]
+    )
+
+    assert result.exit_code == 0
+    assert (project / ".agents" / "skills" / "api-skill").is_dir()
+    assert (project / ".agents" / "skills" / "api-tool").is_dir()
+    assert not (project / ".agents" / "skills" / "other-skill").exists()
+
+
+def test_default_command_discover_glob_precheck_installs_selected_matches(
+    tmp_path, monkeypatch
+):
+    project = write_project(tmp_path, dependencies=["top-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution(
+        site_packages,
+        dist_name="top-pkg",
+        package_dir="top_pkg",
+        skill_names=["api-skill", "api-tool", "other-skill"],
+    )
+    monkeypatch.chdir(project)
+
+    captured = {}
+
+    def fake_select(skills, *, preselect_all=False):
+        captured["names"] = sorted(skill.name for skill in skills)
+        captured["preselect_all"] = preselect_all
+        return skills
+
+    with (
+        patch.object(cli, "_select_skills_interactive", fake_select),
+        patch.object(
+            cli,
+            "_select_targets_interactive",
+            lambda project_root, default_targets: default_targets,
+        ),
+        patch.object(cli, "_select_tool_skill_interactive", lambda: False),
+    ):
+        result = runner.invoke(app, ["--skill", "api-*", "--discover-glob", "--copy"])
+
+    assert result.exit_code == 0
+    assert captured == {"names": ["api-skill", "api-tool"], "preselect_all": True}
+    assert (project / ".agents" / "skills" / "api-skill").is_dir()
+    assert (project / ".agents" / "skills" / "api-tool").is_dir()
+
+
+def test_default_command_discover_glob_zero_matches_falls_back_to_full_picker(
+    tmp_path, monkeypatch
+):
+    project = write_project(tmp_path, dependencies=["top-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution(
+        site_packages,
+        dist_name="top-pkg",
+        package_dir="top_pkg",
+        skill_names=["api-skill", "other-skill"],
+    )
+    monkeypatch.chdir(project)
+
+    captured = {}
+
+    def fake_select(skills, *, preselect_all=False):
+        captured["names"] = sorted(skill.name for skill in skills)
+        captured["preselect_all"] = preselect_all
+        return []
+
+    with (
+        patch.object(cli, "_select_skills_interactive", fake_select),
+        patch.object(cli, "_select_tool_skill_interactive", lambda: False),
+    ):
+        result = runner.invoke(app, ["--skill", "zzz-*", "--discover-glob"])
+
+    assert result.exit_code == 0
+    assert captured["names"] == ["api-skill", "other-skill"]
+    assert captured["preselect_all"] is False
 
 
 def test_yes_repairs_broken_managed_symlink_without_installing_new_skills(
@@ -1587,6 +1822,117 @@ def test_filter_installable_skills_skips_collisions(tmp_path):
     assert selected == []
 
 
+def test_resolve_skill_match_mode_rejects_both_flags():
+    with pytest.raises(typer.BadParameter):
+        cli._resolve_skill_match_mode(discover_glob=True, discover_regex=True)
+
+
+def test_resolve_skill_match_mode_selects_glob_or_regex_or_exact():
+    assert (
+        cli._resolve_skill_match_mode(discover_glob=False, discover_regex=False)
+        == cli.SkillMatchMode.EXACT
+    )
+    assert (
+        cli._resolve_skill_match_mode(discover_glob=True, discover_regex=False)
+        == cli.SkillMatchMode.GLOB
+    )
+    assert (
+        cli._resolve_skill_match_mode(discover_glob=False, discover_regex=True)
+        == cli.SkillMatchMode.REGEX
+    )
+
+
+def test_resolve_selected_skill_names_exact_mode_is_unchanged():
+    matched = cli._resolve_selected_skill_names(
+        ["api-skill", "other-skill"],
+        patterns=["api-skill"],
+        match_mode=cli.SkillMatchMode.EXACT,
+    )
+    assert matched == {"api-skill"}
+
+
+def test_resolve_selected_skill_names_returns_empty_set_for_no_patterns():
+    matched = cli._resolve_selected_skill_names(
+        ["api-skill", "other-skill"],
+        patterns=[],
+        match_mode=cli.SkillMatchMode.GLOB,
+    )
+    assert matched == set()
+
+
+def test_resolve_selected_skill_names_glob_mode_is_case_insensitive_and_full_match():
+    names = ["api-skill", "api-tool", "other-skill"]
+
+    matched = cli._resolve_selected_skill_names(
+        names, patterns=["API-*"], match_mode=cli.SkillMatchMode.GLOB
+    )
+
+    assert matched == {"api-skill", "api-tool"}
+    # A glob must match the entire name, not just a substring.
+    assert (
+        cli._resolve_selected_skill_names(
+            names, patterns=["api"], match_mode=cli.SkillMatchMode.GLOB
+        )
+        == set()
+    )
+
+
+def test_resolve_selected_skill_names_regex_mode_is_case_insensitive_and_full_match():
+    names = ["api-skill", "api-tool", "other-skill"]
+
+    matched = cli._resolve_selected_skill_names(
+        names, patterns=["API-.*"], match_mode=cli.SkillMatchMode.REGEX
+    )
+
+    assert matched == {"api-skill", "api-tool"}
+    # A regex must match the entire name, not just a substring.
+    assert (
+        cli._resolve_selected_skill_names(
+            names, patterns=["api"], match_mode=cli.SkillMatchMode.REGEX
+        )
+        == set()
+    )
+
+
+def test_resolve_selected_skill_names_rejects_invalid_regex():
+    with pytest.raises(typer.BadParameter):
+        cli._resolve_selected_skill_names(
+            ["api-skill"], patterns=["("], match_mode=cli.SkillMatchMode.REGEX
+        )
+
+
+def test_filter_installable_skills_glob_mode_matches_and_skips_collisions(tmp_path):
+    api = make_cli_skill(tmp_path / "api", name="api-skill")
+    tool = make_cli_skill(tmp_path / "tool", name="api-tool")
+    other = make_cli_skill(tmp_path / "other", name="other-skill")
+    dup_a = make_cli_skill(tmp_path / "dup-a", name="dup-skill")
+    dup_b = make_cli_skill(tmp_path / "dup-b", name="dup-skill")
+
+    selected = cli._filter_installable_skills(
+        [api, tool, other, dup_a, dup_b],
+        selected_names=["api-*", "dup-*"],
+        include_all=False,
+        match_mode=cli.SkillMatchMode.GLOB,
+    )
+
+    assert {skill.name for skill in selected} == {"api-skill", "api-tool"}
+
+
+def test_filter_installable_skills_regex_mode_matches(tmp_path):
+    api = make_cli_skill(tmp_path / "api", name="api-skill")
+    tool = make_cli_skill(tmp_path / "tool", name="api-tool")
+    other = make_cli_skill(tmp_path / "other", name="other-skill")
+
+    selected = cli._filter_installable_skills(
+        [api, tool, other],
+        selected_names=["^api-.*$"],
+        include_all=False,
+        match_mode=cli.SkillMatchMode.REGEX,
+    )
+
+    assert {skill.name for skill in selected} == {"api-skill", "api-tool"}
+
+
 def test_select_helpers_use_rich_toolkit(monkeypatch, tmp_path, capsys):
     skill = make_cli_skill(tmp_path)
     target = cli.InstallTarget("universal", tmp_path / ".agents" / "skills")
@@ -1599,10 +1945,26 @@ def test_select_helpers_use_rich_toolkit(monkeypatch, tmp_path, capsys):
         status="up to date",
         skill=skill,
     )
-    monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkit([skill]))
 
-    assert cli._select_skills_interactive([skill]) == [skill]
+    class FakeToolkitMenu:
+        style = None
+        console = None
+
+    class FakeMenu:
+        def __init__(self, _label, *, options, **kwargs):
+            assert kwargs["multiple"] is True
+            self.options = options
+            self.checked = set()
+
+        def ask(self):
+            return [self.options[index]["value"] for index in sorted(self.checked)]
+
+    monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkitMenu())
+    monkeypatch.setattr(cli, "Menu", FakeMenu)
+
+    assert cli._select_skills_interactive([skill]) == []
     assert "install" in capsys.readouterr().out
+    assert cli._select_skills_interactive([skill], preselect_all=True) == [skill]
 
     monkeypatch.setattr(cli, "_get_rich_toolkit", lambda: FakeToolkit([status]))
 
