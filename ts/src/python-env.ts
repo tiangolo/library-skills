@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { findNodeWorkspace, findUvWorkspace } from "./workspace.js";
 
 export function findProjectRoot(cwd: string): string | null {
@@ -40,18 +40,21 @@ export function findVenv(cwd = process.cwd()): string | null {
   }
 
   if (workspace !== null) {
-    return venvFromDotVenv(workspace.root);
-  }
-
-  for (const directory of ancestors(cwd)) {
-    const venv = venvFromDotVenv(directory);
+    const venv = venvFromDotVenv(workspace.root);
     if (venv !== null) {
       return venv;
+    }
+  } else {
+    for (const directory of ancestors(cwd)) {
+      const venv = venvFromDotVenv(directory);
+      if (venv !== null) {
+        return venv;
+      }
     }
   }
 
   const virtualEnv = process.env["VIRTUAL_ENV"];
-  if (virtualEnv && isVenvDir(virtualEnv) && isRelativeTo(virtualEnv, projectRoot)) {
+  if (virtualEnv && isVenvDir(virtualEnv)) {
     return virtualEnv;
   }
 
@@ -141,15 +144,6 @@ function ancestors(start: string): string[] {
     directory = parent;
   }
   return result;
-}
-
-function isRelativeTo(path: string, parent: string): boolean {
-  const normalizedPath = resolve(path);
-  const normalizedParent = resolve(parent);
-  return (
-    normalizedPath === normalizedParent ||
-    normalizedPath.startsWith(`${normalizedParent}${sep}`)
-  );
 }
 
 function isFile(path: string): boolean {
