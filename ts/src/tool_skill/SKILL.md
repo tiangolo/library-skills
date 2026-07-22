@@ -27,6 +27,7 @@ Agents bundle their own skills by including an `.agents/skills` directory. More 
 - Run `uvx library-skills --check` or `npx library-skills --check` to validate managed skill symlink state without changing files.
 - Run `uvx library-skills --yes` or `npx library-skills --yes` to repair stale managed symlinks and remove orphaned managed symlinks non-interactively.
 - Add `--claude` when `.claude/skills` should also be managed.
+- Add `--kiro` when `.kiro/skills` should also be managed.
 - Add `--skill NAME` to install a specific discovered skill by name.
 
 ## Safety
