@@ -4,10 +4,13 @@
 
 ### Docs
 
+* 🐛 Prevent Termynal controls from scrolling. PR [#180](https://github.com/tiangolo/library-skills/pull/180) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Update docs fenced code blocks, do not use `console`, use `bash`, so that copying the commands is easier. PR [#151](https://github.com/tiangolo/library-skills/pull/151) by [@tiangolo](https://github.com/tiangolo).
 
 ### Internal
 
+* ⬆️ Upgrade latest-changes to 0.7.1. PR [#184](https://github.com/tiangolo/library-skills/pull/184) by [@tiangolo](https://github.com/tiangolo).
+* 👷 Fix zizmor checkout version comment. PR [#181](https://github.com/tiangolo/library-skills/pull/181) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Fix latest-changes checkout target. PR [#168](https://github.com/tiangolo/library-skills/pull/168) by [@tiangolo](https://github.com/tiangolo).
 * ⬆️ Update issue-manager to 0.8.1. PR [#167](https://github.com/tiangolo/library-skills/pull/167) by [@tiangolo](https://github.com/tiangolo).
 * ⬆️ Update latest-changes to 0.6.1. PR [#166](https://github.com/tiangolo/library-skills/pull/166) by [@tiangolo](https://github.com/tiangolo).
