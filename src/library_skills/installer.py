@@ -7,9 +7,9 @@ from pathlib import Path
 
 from .scanner import Skill
 
-UNIVERSAL_SKILLS_DIR = ".agents/skills"
-CLAUDE_SKILLS_DIR = ".claude/skills"
-KIRO_SKILLS_DIR = ".kiro/skills"
+UNIVERSAL_SKILLS_DIR = Path(".agents/skills")
+CLAUDE_SKILLS_DIR = Path(".claude/skills")
+KIRO_SKILLS_DIR = Path(".kiro/skills")
 TOOL_SKILL_NAME = "library-skills"
 TOOL_SKILL_MARKER = ".library-skills.json"
 TOOL_SKILL_KIND = "tool-skill"
@@ -20,8 +20,8 @@ class FrameworkConfig:
     name: str
     display_name: str
     short_name: str
-    skills_dir: str
-    detector_dir: str
+    skills_dir: Path
+    detector_dir: Path
     cli_flag: str
 
 
@@ -30,16 +30,16 @@ FRAMEWORKS = {
         name="claude-compatible",
         display_name="Claude Code (.claude/skills)",
         short_name="Claude Code",
-        skills_dir=".claude/skills",
-        detector_dir=".claude",
+        skills_dir=Path(".claude/skills"),
+        detector_dir=Path(".claude"),
         cli_flag="--claude",
     ),
     "kiro": FrameworkConfig(
         name="kiro-compatible",
         display_name="Kiro (.kiro/skills)",
         short_name="Kiro",
-        skills_dir=".kiro/skills",
-        detector_dir=".kiro",
+        skills_dir=Path(".kiro/skills"),
+        detector_dir=Path(".kiro"),
         cli_flag="--kiro",
     ),
 }
@@ -306,7 +306,7 @@ def install_tool_skill(target_dir: Path) -> Path:
 def _target_for_path(target_dir: Path) -> InstallTarget:
     posix_path = target_dir.as_posix()
     for fw in FRAMEWORKS.values():
-        if posix_path.endswith(fw.skills_dir):
+        if posix_path.endswith(fw.skills_dir.as_posix()):
             return InstallTarget(name=fw.name, path=target_dir)
     return InstallTarget(name="universal", path=target_dir)
 
