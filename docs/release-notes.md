@@ -4,6 +4,7 @@
 
 ### Docs
 
+* 🐛 Use buttons for Termynal controls. PR [#188](https://github.com/tiangolo/library-skills/pull/188) by [@tiangolo](https://github.com/tiangolo).
 * 🐛 Prevent Termynal controls from scrolling. PR [#180](https://github.com/tiangolo/library-skills/pull/180) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Update docs fenced code blocks, do not use `console`, use `bash`, so that copying the commands is easier. PR [#151](https://github.com/tiangolo/library-skills/pull/151) by [@tiangolo](https://github.com/tiangolo).
 
