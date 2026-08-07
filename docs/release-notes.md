@@ -10,6 +10,7 @@
 
 ### Internal
 
+* 👷 Remove Zensical docs cache. PR [#192](https://github.com/tiangolo/library-skills/pull/192) by [@tiangolo](https://github.com/tiangolo).
 * 🔥 Remove the old Latest Changes workflow. PR [#190](https://github.com/tiangolo/library-skills/pull/190) by [@tiangolo](https://github.com/tiangolo).
 * ⬆️ Upgrade latest-changes to 0.7.1. PR [#184](https://github.com/tiangolo/library-skills/pull/184) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Fix zizmor checkout version comment. PR [#181](https://github.com/tiangolo/library-skills/pull/181) by [@tiangolo](https://github.com/tiangolo).
