@@ -1,0 +1,2 @@
+workflows:
+  - .github/workflows/prepare-release.yml
