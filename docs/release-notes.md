@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.20 (2026-08-08)
+
 ### Docs
 
 * 🐛 Use buttons for Termynal controls. PR [#188](https://github.com/tiangolo/library-skills/pull/188) by [@tiangolo](https://github.com/tiangolo).
