@@ -10,6 +10,7 @@
 
 ### Internal
 
+* ✨ Use PR Submit for automated PRs. PR [#198](https://github.com/tiangolo/library-skills/pull/198) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Use PR Push commit identity. PR [#197](https://github.com/tiangolo/library-skills/pull/197) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Use PR Push for pre-commit. PR [#194](https://github.com/tiangolo/library-skills/pull/194) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Remove Zensical docs cache. PR [#192](https://github.com/tiangolo/library-skills/pull/192) by [@tiangolo](https://github.com/tiangolo).
