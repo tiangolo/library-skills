@@ -10,6 +10,7 @@
 
 ### Internal
 
+* ⬆ Bump pymdown-extensions from 10.21.3 to 11.0.1. PR [#196](https://github.com/tiangolo/library-skills/pull/196) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump the github-actions group across 1 directory with 7 updates. PR [#193](https://github.com/tiangolo/library-skills/pull/193) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * 👷 Use GitHub CLI for Git authentication. PR [#200](https://github.com/tiangolo/library-skills/pull/200) by [@tiangolo](https://github.com/tiangolo).
 * ✨ Use PR Submit for automated PRs. PR [#198](https://github.com/tiangolo/library-skills/pull/198) by [@tiangolo](https://github.com/tiangolo).
