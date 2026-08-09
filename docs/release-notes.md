@@ -10,6 +10,7 @@
 
 ### Internal
 
+* ⬆ Bump the github-actions group across 1 directory with 7 updates. PR [#193](https://github.com/tiangolo/library-skills/pull/193) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * 👷 Use GitHub CLI for Git authentication. PR [#200](https://github.com/tiangolo/library-skills/pull/200) by [@tiangolo](https://github.com/tiangolo).
 * ✨ Use PR Submit for automated PRs. PR [#198](https://github.com/tiangolo/library-skills/pull/198) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Use PR Push commit identity. PR [#197](https://github.com/tiangolo/library-skills/pull/197) by [@tiangolo](https://github.com/tiangolo).
