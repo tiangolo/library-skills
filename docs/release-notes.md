@@ -10,6 +10,7 @@
 
 ### Internal
 
+* 👷 Remove legacy label check. PR [#203](https://github.com/tiangolo/library-skills/pull/203) by [@tiangolo](https://github.com/tiangolo).
 * 🔧 Set Dependabot schedule interval to "monthly". PR [#201](https://github.com/tiangolo/library-skills/pull/201) by [@tiangolo](https://github.com/tiangolo).
 * ⬆ Bump rich-toolkit from 0.20.1 to 0.20.3. PR [#183](https://github.com/tiangolo/library-skills/pull/183) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump cryptography from 48.0.1 to 50.0.0. PR [#189](https://github.com/tiangolo/library-skills/pull/189) by [@dependabot[bot]](https://github.com/apps/dependabot).
