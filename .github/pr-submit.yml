@@ -1,2 +1,3 @@
 workflows:
   - .github/workflows/prepare-release.yml
+  - .github/workflows/bump-pre-commit-hooks.yml
