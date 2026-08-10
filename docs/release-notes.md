@@ -4,10 +4,28 @@
 
 ### Docs
 
+* 🐛 Use buttons for Termynal controls. PR [#188](https://github.com/tiangolo/library-skills/pull/188) by [@tiangolo](https://github.com/tiangolo).
+* 🐛 Prevent Termynal controls from scrolling. PR [#180](https://github.com/tiangolo/library-skills/pull/180) by [@tiangolo](https://github.com/tiangolo).
 * 📝 Update docs fenced code blocks, do not use `console`, use `bash`, so that copying the commands is easier. PR [#151](https://github.com/tiangolo/library-skills/pull/151) by [@tiangolo](https://github.com/tiangolo).
 
 ### Internal
 
+* 🔧 Set Dependabot schedule interval to "monthly". PR [#201](https://github.com/tiangolo/library-skills/pull/201) by [@tiangolo](https://github.com/tiangolo).
+* ⬆ Bump rich-toolkit from 0.20.1 to 0.20.3. PR [#183](https://github.com/tiangolo/library-skills/pull/183) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump cryptography from 48.0.1 to 50.0.0. PR [#189](https://github.com/tiangolo/library-skills/pull/189) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump pymdown-extensions from 10.21.3 to 11.0.1. PR [#196](https://github.com/tiangolo/library-skills/pull/196) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump the github-actions group across 1 directory with 7 updates. PR [#193](https://github.com/tiangolo/library-skills/pull/193) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* 👷 Use GitHub CLI for Git authentication. PR [#200](https://github.com/tiangolo/library-skills/pull/200) by [@tiangolo](https://github.com/tiangolo).
+* ✨ Use PR Submit for automated PRs. PR [#198](https://github.com/tiangolo/library-skills/pull/198) by [@tiangolo](https://github.com/tiangolo).
+* 👷 Use PR Push commit identity. PR [#197](https://github.com/tiangolo/library-skills/pull/197) by [@tiangolo](https://github.com/tiangolo).
+* 👷 Use PR Push for pre-commit. PR [#194](https://github.com/tiangolo/library-skills/pull/194) by [@tiangolo](https://github.com/tiangolo).
+* 👷 Remove Zensical docs cache. PR [#192](https://github.com/tiangolo/library-skills/pull/192) by [@tiangolo](https://github.com/tiangolo).
+* 🔥 Remove the old Latest Changes workflow. PR [#190](https://github.com/tiangolo/library-skills/pull/190) by [@tiangolo](https://github.com/tiangolo).
+* ⬆️ Upgrade latest-changes to 0.7.1. PR [#184](https://github.com/tiangolo/library-skills/pull/184) by [@tiangolo](https://github.com/tiangolo).
+* 👷 Fix zizmor checkout version comment. PR [#181](https://github.com/tiangolo/library-skills/pull/181) by [@tiangolo](https://github.com/tiangolo).
+* 👷 Fix latest-changes checkout target. PR [#168](https://github.com/tiangolo/library-skills/pull/168) by [@tiangolo](https://github.com/tiangolo).
+* ⬆️ Update issue-manager to 0.8.1. PR [#167](https://github.com/tiangolo/library-skills/pull/167) by [@tiangolo](https://github.com/tiangolo).
+* ⬆️ Update latest-changes to 0.6.1. PR [#166](https://github.com/tiangolo/library-skills/pull/166) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Simplify pull request workflow triggers. PR [#156](https://github.com/tiangolo/library-skills/pull/156) by [@tiangolo](https://github.com/tiangolo).
 * 👷 Update issue-manager to 0.7.1. PR [#155](https://github.com/tiangolo/library-skills/pull/155) by [@tiangolo](https://github.com/tiangolo).
 * ⬆️ Update issue-manager to 0.7.0. PR [#154](https://github.com/tiangolo/library-skills/pull/154) by [@tiangolo](https://github.com/tiangolo).
