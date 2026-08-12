@@ -5,6 +5,7 @@ import pytest
 import library_skills.installer as installer
 from library_skills.installer import (
     CLAUDE_SKILLS_DIR,
+    KIRO_SKILLS_DIR,
     TOOL_SKILL_KIND,
     TOOL_SKILL_MARKER,
     TOOL_SKILL_NAME,
@@ -44,17 +45,18 @@ def make_skill(tmp_path: Path, name: str = "demo-skill") -> Skill:
     )
 
 
-def test_get_target_dirs_always_includes_agents_and_optionally_claude(tmp_path):
+def test_get_target_dirs_always_includes_agents_and_optionally_claude_or_kiro(tmp_path):
     default_targets = get_target_dirs(tmp_path)
     assert len(default_targets) == 1
     assert default_targets[0].name == "universal"
     assert default_targets[0].path == tmp_path / UNIVERSAL_SKILLS_DIR
 
-    targets = get_target_dirs(tmp_path, include_claude=True)
+    targets = get_target_dirs(tmp_path, include_claude=True, include_kiro=True)
 
-    assert [target.name for target in targets] == ["universal", "claude-compatible"]
+    assert [target.name for target in targets] == ["universal", "claude-compatible", "kiro-compatible"]
     assert targets[0].path == tmp_path / UNIVERSAL_SKILLS_DIR
     assert targets[1].path == tmp_path / CLAUDE_SKILLS_DIR
+    assert targets[2].path == tmp_path / KIRO_SKILLS_DIR
 
 
 def test_default_install_target_dirs_follow_project_state(tmp_path):
@@ -74,32 +76,41 @@ def test_default_install_target_dirs_follow_project_state(tmp_path):
         target.name for target in get_default_install_target_dirs(claude_project)
     ] == ["claude-compatible"]
 
-    both_project = tmp_path / "both-project"
-    (both_project / ".agents").mkdir(parents=True)
-    (both_project / ".claude").mkdir(parents=True)
+    kiro_project = tmp_path / "kiro-project"
+    (kiro_project / ".kiro").mkdir(parents=True)
     assert [
-        target.name for target in get_default_install_target_dirs(both_project)
+        target.name for target in get_default_install_target_dirs(kiro_project)
+    ] == ["kiro-compatible"]
+
+    all_project = tmp_path / "all-project"
+    (all_project / ".agents").mkdir(parents=True)
+    (all_project / ".claude").mkdir(parents=True)
+    (all_project / ".kiro").mkdir(parents=True)
+    assert [
+        target.name for target in get_default_install_target_dirs(all_project)
     ] == [
         "universal",
         "claude-compatible",
+        "kiro-compatible",
     ]
 
 
 def test_existing_target_dirs_only_include_concrete_skills_dirs(tmp_path):
     (tmp_path / ".agents").mkdir()
     (tmp_path / ".claude").mkdir()
+    (tmp_path / ".kiro").mkdir()
 
     assert get_existing_target_dirs(tmp_path) == []
 
-    (tmp_path / ".claude" / "skills").mkdir()
+    (tmp_path / ".kiro" / "skills").mkdir()
 
     assert [target.name for target in get_existing_target_dirs(tmp_path)] == [
-        "claude-compatible"
+        "kiro-compatible"
     ]
     assert [
         target.name
-        for target in get_existing_target_dirs(tmp_path, include_claude=True)
-    ] == ["universal", "claude-compatible"]
+        for target in get_existing_target_dirs(tmp_path, include_kiro=True)
+    ] == ["universal", "kiro-compatible"]
 
 
 def test_install_skill_creates_symlink_and_list_installed_skills_reports_it(tmp_path):

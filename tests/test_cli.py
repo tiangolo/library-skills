@@ -1689,6 +1689,7 @@ def test_select_targets_interactive_preselects_defaults(monkeypatch, tmp_path):
             assert [option["name"] for option in options] == [
                 "Agents (.agents/skills)",
                 "Claude Code (.claude/skills)",
+                "Kiro (.kiro/skills)",
             ]
             self.options = options
             self.checked = set()
@@ -1772,13 +1773,16 @@ def test_display_path_prefers_project_relative_paths(tmp_path):
 def test_target_prompt_labels_are_user_facing(tmp_path):
     agents = cli.InstallTarget("universal", tmp_path / ".agents" / "skills")
     claude = cli.InstallTarget("claude-compatible", tmp_path / ".claude" / "skills")
+    kiro = cli.InstallTarget("kiro-compatible", tmp_path / ".kiro" / "skills")
     custom = cli.InstallTarget("custom", tmp_path / "custom")
 
     assert cli._target_prompt_name(agents) == "Agents (.agents/skills)"
     assert cli._target_prompt_name(claude) == "Claude Code (.claude/skills)"
+    assert cli._target_prompt_name(kiro) == "Kiro (.kiro/skills)"
     assert cli._target_prompt_name(custom) == "custom"
     assert cli._target_short_name(agents) == "Agents"
     assert cli._target_short_name(claude) == "Claude Code"
+    assert cli._target_short_name(kiro) == "Kiro"
     assert cli._target_short_name(custom) == "custom"
 
 
@@ -1802,3 +1806,60 @@ def test_main_invokes_typer_app():
         cli.main()
 
     assert called == [True]
+
+
+def test_yes_repairs_existing_kiro_target_without_kiro_flag(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    repaired_skill = write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    kiro_dir = project / ".kiro" / "skills"
+    kiro_dir.mkdir(parents=True)
+    installed = kiro_dir / "demo-skill"
+    installed.symlink_to(project / "missing-target", target_is_directory=True)
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["--yes"])
+
+    assert result.exit_code == 0
+    assert "kiro-compatible" in result.output
+    assert installed.is_symlink()
+    assert installed.resolve() == repaired_skill.resolve()
+
+
+def test_check_tool_skill_reports_missing_default_and_kiro_targets(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=[])
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["--check", "--tool-skill", "--kiro"])
+
+    assert result.exit_code == 1
+    assert "tool skill: missing" in result.output
+    assert str(Path(".agents") / "skills" / "library-skills") in result.output
+    assert str(Path(".kiro") / "skills" / "library-skills") in result.output
+
+
+def test_install_all_copy_mode_installs_to_agents_and_kiro(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["install", "--all", "--yes", "--copy", "--kiro"])
+
+    agents_skill = project / ".agents" / "skills" / "demo-skill"
+    kiro_skill = project / ".kiro" / "skills" / "demo-skill"
+    assert result.exit_code == 0
+    assert agents_skill.is_dir()
+    assert not agents_skill.is_symlink()
+    assert kiro_skill.is_dir()
+    assert not kiro_skill.is_symlink()

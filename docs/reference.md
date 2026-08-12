@@ -15,6 +15,7 @@ library-skills [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--claude`: Also install/manage skills in .claude/skills/ alongside .agents/skills/
+* `--kiro`: Also install/manage skills in .kiro/skills/ alongside .agents/skills/
 * `-y, --yes`: Skip confirmation prompts and reconcile managed symlink drift
 * `--check`: Validate only; exit 1 if installs drift
 * `--all`: Install all newly discovered unmanaged skills
@@ -61,6 +62,7 @@ library-skills list [OPTIONS]
 * `--installed`: Only show installed skills
 * `--json`: Output as JSON
 * `--claude`: Also include .claude/skills/ alongside .agents/skills/
+* `--kiro`: Also include .kiro/skills/ alongside .agents/skills/
 * `--all`: Include skills from transitive dependencies
 * `--help`: Show this message and exit.
 
@@ -77,6 +79,7 @@ library-skills install [OPTIONS]
 **Options**:
 
 * `--claude`: Also install skills in .claude/skills/ alongside .agents/skills/
+* `--kiro`: Also install skills in .kiro/skills/ alongside .agents/skills/
 * `-y, --yes`: Skip interactive selection
 * `--all`: Install all newly discovered unmanaged skills
 * `-s, --skill TEXT`: Install a specific discovered skill by name
@@ -100,5 +103,6 @@ library-skills remove [OPTIONS] [SKILL_NAMES]...
 **Options**:
 
 * `--claude`: Also remove from .claude/skills/ alongside .agents/skills/
+* `--kiro`: Also remove from .kiro/skills/ alongside .agents/skills/
 * `-y, --yes`: Skip interactive selection
 * `--help`: Show this message and exit.

@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   readlinkSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   unlinkSync,
@@ -974,9 +975,10 @@ describe("installer", () => {
     const targetDir = join(root, ".agents", "skills");
     const skill = makeSkill({ name: "agent", skillDir: source });
 
-    expect(getTargetDirs(root, { includeClaude: true })).toEqual([
+    expect(getTargetDirs(root, { includeClaude: true, includeKiro: true })).toEqual([
       { name: "universal", path: join(root, ".agents", "skills") },
       { name: "claude-compatible", path: join(root, ".claude", "skills") },
+      { name: "kiro-compatible", path: join(root, ".kiro", "skills") },
     ]);
     expect(getDefaultInstallTargetDirs(root)).toEqual([
       { name: "universal", path: join(root, ".agents", "skills") },
@@ -985,10 +987,16 @@ describe("installer", () => {
     expect(getDefaultInstallTargetDirs(root)).toEqual([
       { name: "claude-compatible", path: join(root, ".claude", "skills") },
     ]);
+    mkdirSync(join(root, ".kiro"), { recursive: true });
+    expect(getDefaultInstallTargetDirs(root)).toEqual([
+      { name: "claude-compatible", path: join(root, ".claude", "skills") },
+      { name: "kiro-compatible", path: join(root, ".kiro", "skills") },
+    ]);
     mkdirSync(join(root, ".agents"), { recursive: true });
     expect(getDefaultInstallTargetDirs(root)).toEqual([
       { name: "universal", path: join(root, ".agents", "skills") },
       { name: "claude-compatible", path: join(root, ".claude", "skills") },
+      { name: "kiro-compatible", path: join(root, ".kiro", "skills") },
     ]);
     rmSync(join(root, ".agents"), { recursive: true, force: true });
     expect(getExistingTargetDirs(root)).toEqual([]);
@@ -996,9 +1004,10 @@ describe("installer", () => {
     expect(getExistingTargetDirs(root)).toEqual([
       { name: "claude-compatible", path: join(root, ".claude", "skills") },
     ]);
-    expect(getExistingTargetDirs(root, { includeClaude: true })).toEqual([
+    expect(getExistingTargetDirs(root, { includeClaude: true, includeKiro: true })).toEqual([
       { name: "universal", path: join(root, ".agents", "skills") },
       { name: "claude-compatible", path: join(root, ".claude", "skills") },
+      { name: "kiro-compatible", path: join(root, ".kiro", "skills") },
     ]);
 
     const copied = installSkill(skill, targetDir, { copy: true });
@@ -1640,6 +1649,12 @@ test("CLI helpers filter skills and classify installed statuses", () => {
   ).toBe("Claude Code (.claude/skills)");
   expect(
     cliTesting.targetPromptName({
+      name: "kiro-compatible",
+      path: join(root, ".kiro", "skills"),
+    }),
+  ).toBe("Kiro (.kiro/skills)");
+  expect(
+    cliTesting.targetPromptName({
       name: "custom",
       path: join(root, "custom"),
     }),
@@ -1656,6 +1671,12 @@ test("CLI helpers filter skills and classify installed statuses", () => {
       path: join(root, ".claude", "skills"),
     }),
   ).toBe("Claude Code");
+  expect(
+    cliTesting.targetShortName({
+      name: "kiro-compatible",
+      path: join(root, ".kiro", "skills"),
+    }),
+  ).toBe("Kiro");
   expect(
     cliTesting.targetShortName({
       name: "custom",
@@ -1915,6 +1936,7 @@ test("CLI interactive install can choose Claude targets", async () => {
       expect(prompt.choices.map((choice) => choice.name)).toEqual([
         "Agents (.agents/skills)",
         "Claude Code (.claude/skills)",
+        "Kiro (.kiro/skills)",
       ]);
       expect(prompt.validate?.([])).toBe(
         "Please select at least one installation target.",
@@ -2232,7 +2254,7 @@ test("CLI sync deduplicates new skills across selected targets", async () => {
 });
 
 function tempDir(): string {
-  const directory = mkdtempSync(join(tmpdir(), "library-skills-ts-"));
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), "library-skills-ts-")));
   tempDirs.push(directory);
   return directory;
 }
@@ -2499,3 +2521,38 @@ function lstatExists(path: string): boolean {
     return false;
   }
 }
+
+test("CLI sync with --kiro installs skills to kiro target", async () => {
+  const project = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(project);
+
+  await cliTesting.sync({ all: true, yes: true, kiro: true, toolSkill: false });
+
+  expect(lstatSync(join(project, ".agents", "skills", "top-skill")).isSymbolicLink()).toBe(true);
+  expect(lstatSync(join(project, ".kiro", "skills", "top-skill")).isSymbolicLink()).toBe(true);
+});
+
+test("CLI sync auto-detects .kiro directory and installs skills there", async () => {
+  const project = writeProjectWithTopLevelAndTransitiveSkills();
+  process.chdir(project);
+  mkdirSync(join(project, ".kiro"));
+
+  vi.mocked(checkbox)
+    .mockImplementationOnce(async (prompt) => {
+      return [prompt.choices[0].value];
+    })
+    .mockImplementationOnce(async (prompt) => {
+      // Prompt selection for installation targets
+      expect(prompt.choices.map((choice) => choice.name)).toEqual([
+        "Agents (.agents/skills)",
+        "Claude Code (.claude/skills)",
+        "Kiro (.kiro/skills)",
+      ]);
+      return [prompt.choices[2].value];
+    });
+
+  await cliTesting.sync({ toolSkill: false });
+
+  expect(lstatSync(join(project, ".kiro", "skills", "top-skill")).isSymbolicLink()).toBe(true);
+  expect(existsSync(join(project, ".agents", "skills", "top-skill"))).toBe(false);
+});
