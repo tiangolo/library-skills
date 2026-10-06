@@ -14,6 +14,7 @@
 
 ### Internal
 
+* ⬆️ Bump setup-uv action to 10.0.1. PR [#206](https://github.com/tiangolo/library-skills/pull/206) by [@YuriiMotov](https://github.com/YuriiMotov).
 * 👷 Add GH workflow to bump pre-commit hook versions. PR [#161](https://github.com/tiangolo/library-skills/pull/161) by [@YuriiMotov](https://github.com/YuriiMotov).
 * 🔧 Set Dependabot schedule interval to "monthly". PR [#162](https://github.com/tiangolo/library-skills/pull/162) by [@YuriiMotov](https://github.com/YuriiMotov).
 * 👷 Migrate automatic labels to Latest Changes. PR [#205](https://github.com/tiangolo/library-skills/pull/205) by [@tiangolo](https://github.com/tiangolo).
