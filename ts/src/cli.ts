@@ -87,6 +87,7 @@ interface GlobalOptions {
 	all?: boolean;
 	skill?: string[];
 	copy?: boolean;
+	force?: boolean;
 	toolSkill?: boolean;
 }
 
@@ -96,6 +97,7 @@ interface InstallOptions {
 	all?: boolean;
 	skill?: string[];
 	copy?: boolean;
+	force?: boolean;
 }
 
 interface ListOptions {
@@ -708,17 +710,19 @@ function installSelected({
 	targets,
 	projectRoot,
 	copy = false,
+	force = false,
 }: {
 	skills: Skill[];
 	targets: InstallTarget[];
 	projectRoot: string;
 	copy?: boolean;
+	force?: boolean;
 }): number {
 	let installedCount = 0;
 	for (const target of targets) {
 		for (const skill of skills) {
 			try {
-				const dest = installSkill(skill, target.path, { copy });
+				const dest = installSkill(skill, target.path, { copy, force });
 				output.printResult({
 					action: copy ? "Copied" : "Installed",
 					name: skill.name,
@@ -943,6 +947,7 @@ async function sync(options: GlobalOptions): Promise<void> {
 			targets,
 			projectRoot: context.projectRoot,
 			copy: options.copy,
+			force: options.force,
 		});
 		output.printLine();
 		output.printSummary({ "installed skill targets": installedCount });
@@ -1094,6 +1099,7 @@ async function installCommand(options: InstallOptions): Promise<void> {
 		targets,
 		projectRoot: context.projectRoot,
 		copy: options.copy,
+		force: options.force,
 	});
 	output.printLine();
 	output.printSummary({ "installed skill targets": installedCount });
@@ -1151,6 +1157,10 @@ export function createProgram(): Command {
 		.option("--check", "Validate only; exit 1 if installs drift")
 		.option("--all", "Install all newly discovered unmanaged skills")
 		.option("--copy", "Copy files instead of creating symlinks")
+		.option(
+			"--force",
+			"Overwrite existing non-symlink files or directories at the destination",
+		)
 		.option("--tool-skill", "Copy the Library Skills tool skill into the project")
 		.option("--no-tool-skill", "Skip Library Skills tool skill management")
 		.option(
@@ -1199,6 +1209,10 @@ export function createProgram(): Command {
 			[],
 		)
 		.option("--copy", "Copy files instead of creating symlinks")
+		.option(
+			"--force",
+			"Overwrite existing non-symlink files or directories at the destination",
+		)
 		.action(async (options: InstallOptions) => {
 			await installCommand(options);
 		});

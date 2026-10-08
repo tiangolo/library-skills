@@ -81,6 +81,7 @@ library-skills install [OPTIONS]
 * `--all`: Install all newly discovered unmanaged skills
 * `-s, --skill TEXT`: Install a specific discovered skill by name
 * `--copy`: Copy files instead of creating symlinks
+* `--force`: Overwrite existing non-symlink files or directories at the destination (useful with --copy on systems without symlink support)
 * `--help`: Show this message and exit.
 
 ## `library-skills remove`
