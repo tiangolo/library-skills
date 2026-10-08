@@ -112,6 +112,31 @@ members = ["packages/*"]
     assert find_venv(member) is None
 
 
+def test_find_venv_falls_back_to_virtual_env_in_workspace_without_root_environment(
+    monkeypatch,
+    tmp_path,
+):
+    workspace = tmp_path / "workspace"
+    member = workspace / "packages" / "api"
+    member.mkdir(parents=True)
+    (workspace / "pyproject.toml").write_text(
+        """
+[tool.uv.workspace]
+members = ["packages/*"]
+""",
+        encoding="utf-8",
+    )
+    (member / "pyproject.toml").write_text(
+        "[project]\nname = 'api'\nversion = '0.1.0'\n",
+        encoding="utf-8",
+    )
+    outside = make_venv(tmp_path / "hedge-managed-env")
+    clear_python_env_vars(monkeypatch)
+    monkeypatch.setenv("VIRTUAL_ENV", str(outside))
+
+    assert find_venv(member) == outside
+
+
 def test_find_venv_supports_pep_832_redirect_file(monkeypatch, tmp_path):
     project = tmp_path / "project"
     nested = project / "src" / "pkg"
@@ -170,14 +195,14 @@ def test_find_venv_ignores_invalid_pep_832_entries(monkeypatch, tmp_path):
     assert find_venv(nested) is None
 
 
-def test_find_venv_ignores_virtual_env_outside_project(monkeypatch, tmp_path):
+def test_find_venv_uses_virtual_env_outside_project(monkeypatch, tmp_path):
     project = tmp_path / "project"
     project.mkdir()
-    outside = make_venv(tmp_path / "tool-env")
+    outside = make_venv(tmp_path / "hatch-managed-env")
     clear_python_env_vars(monkeypatch)
     monkeypatch.setenv("VIRTUAL_ENV", str(outside))
 
-    assert find_venv(project) is None
+    assert find_venv(project) == outside
 
 
 def test_find_venv_uses_virtual_env_inside_project(monkeypatch, tmp_path):
