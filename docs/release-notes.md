@@ -14,6 +14,7 @@
 
 ### Internal
 
+* ⬆ Bump pyjwt from 2.13.0 to 2.15.0. PR [#214](https://github.com/tiangolo/library-skills/pull/214) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆️ Bump setup-uv action to 10.0.1. PR [#206](https://github.com/tiangolo/library-skills/pull/206) by [@YuriiMotov](https://github.com/YuriiMotov).
 * 👷 Add GH workflow to bump pre-commit hook versions. PR [#161](https://github.com/tiangolo/library-skills/pull/161) by [@YuriiMotov](https://github.com/YuriiMotov).
 * 🔧 Set Dependabot schedule interval to "monthly". PR [#162](https://github.com/tiangolo/library-skills/pull/162) by [@YuriiMotov](https://github.com/YuriiMotov).
