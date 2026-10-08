@@ -19,6 +19,8 @@ library-skills [OPTIONS] COMMAND [ARGS]...
 * `--check`: Validate only; exit 1 if installs drift
 * `--all`: Install all newly discovered unmanaged skills
 * `-s, --skill TEXT`: Install a specific discovered skill by name
+* `--discover-glob`: Treat --skill values as glob patterns matched against skill names
+* `--discover-regex`: Treat --skill values as regular expressions matched against skill names
 * `--install-completion`: Install completion for the current shell.
 * `--show-completion`: Show completion for the current shell, to copy it or customize the installation.
 * `--help`: Show this message and exit.
@@ -80,6 +82,8 @@ library-skills install [OPTIONS]
 * `-y, --yes`: Skip interactive selection
 * `--all`: Install all newly discovered unmanaged skills
 * `-s, --skill TEXT`: Install a specific discovered skill by name
+* `--discover-glob`: Treat --skill values as glob patterns matched against skill names
+* `--discover-regex`: Treat --skill values as regular expressions matched against skill names
 * `--copy`: Copy files instead of creating symlinks
 * `--help`: Show this message and exit.
 
