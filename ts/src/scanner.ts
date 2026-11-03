@@ -39,6 +39,7 @@ interface DistributionInfo {
 }
 
 const SKILL_NAME_RE = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+const DEPENDENCY_DIR_NAMES = new Set(["node_modules", "site-packages"]);
 
 export function scanPythonDistributions(sitePackages: string): ScanResult {
 	const result: ScanResult = { skills: [], warnings: [] };
@@ -321,6 +322,9 @@ function scanEditableDirectUrl({
 	}
 
 	for (const skillMd of findSkillMarkdownFiles(sourceRoot)) {
+		if (isInHiddenOrDependencyDir(relative(sourceRoot, skillMd))) {
+			continue;
+		}
 		const resolvedSkillMd = realpathOrResolve(skillMd);
 		if (!isRelativeTo(resolvedSkillMd, sourceRoot)) {
 			continue;
@@ -349,6 +353,14 @@ function scanEditableDirectUrl({
 	}
 
 	return result;
+}
+
+function isInHiddenOrDependencyDir(relativeSkillMd: string): boolean {
+	const parts = relativeSkillMd.split(/[\\/]+/);
+	// Skip the .agents/skills/<name>/SKILL.md tail, it is hidden by design.
+	return parts
+		.slice(0, parts.lastIndexOf(".agents"))
+		.some((part) => part.startsWith(".") || DEPENDENCY_DIR_NAMES.has(part));
 }
 
 function readEditableSourceRoot(distInfo: string): string | null {

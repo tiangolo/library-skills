@@ -32,6 +32,7 @@ class ScanResult:
 
 
 _SKILL_NAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
+_DEPENDENCY_DIR_NAMES = {"node_modules", "site-packages"}
 
 
 def scan_python_distributions(site_packages: Path) -> ScanResult:
@@ -240,6 +241,8 @@ def _scan_editable_direct_url(
         return result
 
     for skill_md in sorted(source_root.rglob(".agents/skills/*/SKILL.md")):
+        if _is_in_hidden_or_dependency_dir(skill_md.relative_to(source_root)):
+            continue
         resolved_skill_md = skill_md.resolve()
         if not _is_relative_to(resolved_skill_md, source_root):
             continue
@@ -265,6 +268,14 @@ def _scan_editable_direct_url(
             result.warnings.append(warning)
 
     return result
+
+
+def _is_in_hidden_or_dependency_dir(relative_skill_md: Path) -> bool:
+    # Skip the .agents/skills/<name>/SKILL.md tail, it is hidden by design.
+    return any(
+        part.startswith(".") or part in _DEPENDENCY_DIR_NAMES
+        for part in relative_skill_md.parts[:-4]
+    )
 
 
 def _read_editable_source_root(dist_info: Path) -> Path | None:
