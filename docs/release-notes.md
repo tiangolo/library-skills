@@ -4,6 +4,7 @@
 
 ### Upgrades
 
+* ⬆️ Use latest-known uv and upgrade GitHub Actions. PR [#228](https://github.com/tiangolo/library-skills/pull/228) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆️ Bump Typer min version to `0.26.1`. PR [#207](https://github.com/tiangolo/library-skills/pull/207) by [@YuriiMotov](https://github.com/YuriiMotov).
 
 ### Docs
