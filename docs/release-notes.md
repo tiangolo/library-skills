@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.20 (2026-11-10)
+
 ### Upgrades
 
 * ⬆️ Add support for Python 3.15 and 3.15t. PR [#232](https://github.com/tiangolo/library-skills/pull/232) by [@tiangolo](https://github.com/tiangolo).
