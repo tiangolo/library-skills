@@ -87,7 +87,7 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, macos-latest ]
-        python-version: [ "3.14", "3.14t" ]
+        python-version: [ "3.14", "3.14t", "3.15", "3.15t" ]
         uv-resolution:
           - highest
         include:
@@ -105,6 +105,12 @@ jobs:
             uv-resolution: highest
           - os: ubuntu-latest
             python-version: "3.14t"
+            uv-resolution: highest
+          - os: ubuntu-latest
+            python-version: "3.15"
+            uv-resolution: highest
+          - os: ubuntu-latest
+            python-version: "3.15t"
             uv-resolution: highest
       fail-fast: false
     runs-on: ${{ matrix.os }}
