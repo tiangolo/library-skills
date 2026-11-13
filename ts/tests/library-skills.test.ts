@@ -862,7 +862,7 @@ test("handles alternate and missing Python environment discovery paths", () => {
   const outside = tempDir();
   writeFileSync(join(outside, "pyvenv.cfg"), "");
   process.env = { ...originalEnv, VIRTUAL_ENV: outside };
-  expect(findVenv(nested)).toBeNull();
+  expect(findVenv(nested)).toBe(outside);
 
   const venv = join(project, "env");
   const windowsSitePackages = join(venv, "Lib", "site-packages");
@@ -893,6 +893,27 @@ test("handles alternate and missing Python environment discovery paths", () => {
   expect(getSitePackagesDir(tempDir())).toBeNull();
 });
 
+test("findVenv uses VIRTUAL_ENV wherever it is located, but project .venv wins", () => {
+  const project = tempDir();
+  const nested = join(project, "pkg");
+  mkdirSync(nested, { recursive: true });
+
+  const outside = tempDir();
+  writeFileSync(join(outside, "pyvenv.cfg"), "");
+  process.env = { ...originalEnv, VIRTUAL_ENV: outside };
+  expect(findVenv(nested)).toBe(outside);
+
+  const conda = tempDir();
+  process.env = { ...originalEnv, CONDA_PREFIX: conda };
+  expect(findVenv(project)).toBe(conda);
+
+  process.env = { ...originalEnv, VIRTUAL_ENV: outside };
+  const localVenv = join(project, ".venv");
+  mkdirSync(localVenv, { recursive: true });
+  writeFileSync(join(localVenv, "pyvenv.cfg"), "");
+  expect(findVenv(project)).toBe(localVenv);
+});
+
 test("honors UV_PROJECT_ENVIRONMENT before local .venv", () => {
   const project = tempDir();
   const uvEnv = join(project, ".custom-env");
@@ -916,6 +937,26 @@ test("resolves UV_PROJECT_ENVIRONMENT relative to uv workspace root", () => {
   process.env["UV_PROJECT_ENVIRONMENT"] = ".custom-env";
 
   expect(findVenv(api)).toBe(workspaceEnv);
+});
+
+test("falls back to VIRTUAL_ENV in a uv workspace without a root environment", () => {
+  const workspace = tempDir();
+  const member = join(workspace, "packages", "api");
+  mkdirSync(member, { recursive: true });
+  writeFileSync(
+    join(workspace, "pyproject.toml"),
+    ["[tool.uv.workspace]", 'members = ["packages/*"]', ""].join("\n"),
+  );
+  writeFileSync(
+    join(member, "pyproject.toml"),
+    ["[project]", 'name = "api"', 'version = "0.1.0"', ""].join("\n"),
+  );
+
+  const outside = tempDir();
+  writeFileSync(join(outside, "pyvenv.cfg"), "");
+  process.env = { ...originalEnv, VIRTUAL_ENV: outside };
+
+  expect(findVenv(member)).toBe(outside);
 });
 
 describe("installer", () => {
@@ -1121,6 +1162,25 @@ test("CLI scan defaults to top-level project dependencies", async () => {
   expect(log).toHaveBeenCalledWith(expect.stringContaining("node-skill"));
   expect(log).toHaveBeenCalledWith(expect.stringContaining("@scope/node-pkg"));
   expect(log).not.toHaveBeenCalledWith(expect.stringContaining("transitive-node-skill"));
+});
+
+test("CLI scan uses VIRTUAL_ENV pointing outside the project", async () => {
+  const project = tempDir();
+  process.chdir(project);
+  const outsideEnv = tempDir();
+  writeFileSync(join(outsideEnv, "pyvenv.cfg"), "");
+  const sitePackages = join(outsideEnv, "lib", "python3.12", "site-packages");
+  writePackageSkill({
+    sitePackages,
+    packageDir: "outside_pkg",
+    skillName: "outside-skill",
+    packageName: "outside-pkg",
+  });
+  process.env = { ...originalEnv, VIRTUAL_ENV: outsideEnv };
+  const { log } = mockConsole();
+
+  await createProgram().parseAsync(["node", "library-skills", "scan"]);
+  expect(log).toHaveBeenCalledWith(expect.stringContaining("outside-skill"));
 });
 
 test("CLI scan in uv workspace member uses workspace venv and member deps", async () => {
