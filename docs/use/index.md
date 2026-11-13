@@ -47,6 +47,8 @@ Only use `--copy` if your system doesn't support symbolic links (e.g. could happ
 
 By default, it will create symbolic links, which means that if you update the library, its skills will be automatically updated.
 
+If a target directory already has a hand-authored, non-symlink copy of a skill (common when re-running `--copy` on a system without symlink support), installs are skipped to avoid clobbering it. Pass `--force` alongside `--copy` to overwrite it.
+
 ///
 
 ## Committing Installed Skills

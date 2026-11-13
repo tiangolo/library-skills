@@ -116,8 +116,14 @@ def install_skill(
     target_dir: Path,
     *,
     copy: bool = False,
+    force: bool = False,
 ) -> Path:
     """Install a single skill to the target directory.
+
+    By default, existing non-symlink files or directories at the destination
+    block the install. Pass ``force=True`` to overwrite them instead (useful
+    on platforms such as Windows where symlinks are frequently unavailable,
+    forcing ``--copy`` installs that would otherwise be skipped every run).
 
     Returns the path to the installed skill directory.
     """
@@ -125,12 +131,21 @@ def install_skill(
     source = skill.skill_dir.resolve()
 
     if dest.exists() or dest.is_symlink():
+        if not dest.is_symlink() and dest.resolve() == source:
+            # Destination already *is* the skill source (e.g. dogfeeding a
+            # skill from within its own package tree). Overwriting it would
+            # destroy the very files we're about to copy from.
+            return dest
         if dest.is_symlink():
             dest.unlink()
         elif dest.is_file():
-            raise InstallError(f"Cannot overwrite non-symlink file: {dest}")
+            if not force:
+                raise InstallError(f"Cannot overwrite non-symlink file: {dest}")
+            dest.unlink()
         elif dest.is_dir():
-            raise InstallError(f"Cannot overwrite non-symlink directory: {dest}")
+            if not force:
+                raise InstallError(f"Cannot overwrite non-symlink directory: {dest}")
+            shutil.rmtree(dest)
 
     dest.parent.mkdir(parents=True, exist_ok=True)
 
