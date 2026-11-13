@@ -192,6 +192,30 @@ npx library-skills --claude
 
 ////
 
+### Kiro
+
+If you are using Kiro, it uses the `.kiro` directory.
+
+When Library Skills asks for installation targets, select `.kiro/skills`.
+
+For non-interactive installs, use `--kiro` to install in `.kiro/skills` too.
+
+//// tab | Python uvx
+
+```bash
+uvx library-skills --kiro
+```
+
+////
+
+//// tab | Node.js npx
+
+```bash
+npx library-skills --kiro
+```
+
+////
+
 ## Other Installations
 
 The <abbr title="Command Line Interface">CLI</abbr> program `library-skills` is designed to make it work with `uvx` or `npx`.

@@ -54,11 +54,12 @@ Then it will ask where to install new skills and add them as symbolic links, so 
 
 The symlinks are relative, so projects with stable repo-local installs can commit them to Git. They may be broken before dependencies are installed, then resolve after setup. On Windows, real symlink checkout can require Developer Mode or elevated permissions; use `--copy` if symlinks are not practical.
 
-By default it selects `.agents/skills`, the agent-neutral target. If the project already has a `.claude/` directory, it selects `.claude/skills` too.
+By default it selects `.agents/skills`, the agent-neutral target. If the project already has a `.claude/` directory, it selects `.claude/skills` too. Similarly, if the project has a `.kiro/` directory, it selects `.kiro/skills` too.
 
 /// tip
 
-If you are using Claude Code, select `.claude/skills` when asked for installation targets, as Claude Code doesn't support the standard `.agents` directory. For non-interactive installs, add the `--claude` CLI option to install the skills in `.claude/skills` too.
+* If you are using Claude Code, select `.claude/skills` when asked for installation targets. For non-interactive installs, add the `--claude` CLI option to install the skills in `.claude/skills` too.
+* If you are using Kiro, select `.kiro/skills` when asked for installation targets. For non-interactive installs, add the `--kiro` CLI option to install the skills in `.kiro/skills` too.
 
 ///
 
