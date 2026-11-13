@@ -793,6 +793,40 @@ def test_install_skill_can_explicitly_select_transitive_dependency(
     assert installed.resolve() == transitive_skill.resolve()
 
 
+def test_editable_project_does_not_claim_node_modules_skills_as_collisions(
+    tmp_path, monkeypatch
+):
+    project = write_project(tmp_path, dependencies=[])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    dist_info = site_packages / "demo-0.1.0.dist-info"
+    dist_info.mkdir()
+    dist_info.joinpath("METADATA").write_text(
+        "Metadata-Version: 2.4\nName: demo\nVersion: 0.1.0\n",
+        encoding="utf-8",
+    )
+    dist_info.joinpath("direct_url.json").write_text(
+        json.dumps({"url": project.as_uri(), "dir_info": {"editable": True}}),
+        encoding="utf-8",
+    )
+    node_skill = write_node_package_skill(
+        project, package_name="node-pkg", skill_name="node-skill"
+    )
+    project.joinpath("package.json").write_text(
+        json.dumps({"dependencies": {"node-pkg": "^2.0.0"}}),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(project)
+
+    check_result = runner.invoke(app, ["--check"])
+    result = runner.invoke(app, ["install", "--all", "--yes"])
+
+    installed = project / ".agents" / "skills" / "node-skill"
+    assert check_result.exit_code == 0
+    assert result.exit_code == 0
+    assert "colliding" not in result.output
+    assert installed.resolve() == node_skill.resolve()
+
+
 def test_yes_repairs_broken_managed_symlink_without_installing_new_skills(
     tmp_path,
     monkeypatch,
