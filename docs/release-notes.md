@@ -2,6 +2,8 @@
 
 ## Latest Changes
 
+## 0.0.21 (2026-11-13)
+
 ### Breaking Changes
 
 * 💥 Drop support for Python 3.10. PR [#235](https://github.com/tiangolo/library-skills/pull/235) by [@tiangolo](https://github.com/tiangolo).
