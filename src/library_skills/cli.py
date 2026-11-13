@@ -1,6 +1,9 @@
+import fnmatch
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Annotated
 
@@ -327,18 +330,26 @@ def _print_action_header(action: str) -> None:
     ui.print_action_header(action, console=console)
 
 
-def _select_skills_interactive(skills: list[Skill]) -> list[Skill]:
+def _select_skills_interactive(
+    skills: list[Skill], *, preselect_all: bool = False
+) -> list[Skill]:
     """Let the user interactively select which skills to install."""
     _print_action_header("install")
-    return _get_rich_toolkit().ask(
+    toolkit = _get_rich_toolkit()
+    menu = Menu(
         "Select skills to install (press Space to select, Enter to confirm):",
         options=[
             Option({"name": f"{skill.name} ({skill.package_name})", "value": skill})
             for skill in skills
         ],
+        style=toolkit.style,
+        console=toolkit.console,
         allow_filtering=True,
         multiple=True,
     )
+    if preselect_all:
+        menu.checked = set(range(len(skills)))
+    return menu.ask()
 
 
 def _select_targets_interactive(
@@ -421,11 +432,66 @@ def _deduplicate_skills(skills: list[Skill]) -> list[Skill]:
     return unique
 
 
+class SkillMatchMode(str, Enum):
+    """How --skill values should be interpreted when resolving skill names."""
+
+    EXACT = "exact"
+    GLOB = "glob"
+    REGEX = "regex"
+
+
+def _resolve_skill_match_mode(
+    *, discover_glob: bool, discover_regex: bool
+) -> SkillMatchMode:
+    """Determine how --skill values should be interpreted."""
+    if discover_glob and discover_regex:
+        raise typer.BadParameter(
+            "--discover-glob and --discover-regex cannot be used together."
+        )
+    if discover_glob:
+        return SkillMatchMode.GLOB
+    if discover_regex:
+        return SkillMatchMode.REGEX
+    return SkillMatchMode.EXACT
+
+
+def _resolve_selected_skill_names(
+    available_names: list[str],
+    *,
+    patterns: list[str],
+    match_mode: SkillMatchMode,
+) -> set[str]:
+    """Resolve --skill values (exact names, globs, or regexes) to matched names."""
+    if not patterns:
+        return set()
+    if match_mode == SkillMatchMode.EXACT:
+        return set(patterns) & set(available_names)
+
+    compiled: list[re.Pattern[str]] = []
+    for pattern in patterns:
+        try:
+            if match_mode == SkillMatchMode.GLOB:
+                compiled.append(re.compile(fnmatch.translate(pattern), re.IGNORECASE))
+            else:
+                compiled.append(re.compile(pattern, re.IGNORECASE))
+        except re.error as exc:
+            raise typer.BadParameter(
+                f"Invalid regular expression for --skill: {pattern!r} ({exc})"
+            ) from exc
+
+    return {
+        name
+        for name in available_names
+        if any(pattern.fullmatch(name) for pattern in compiled)
+    }
+
+
 def _filter_installable_skills(
     skills: list[Skill],
     *,
     selected_names: list[str],
     include_all: bool,
+    match_mode: SkillMatchMode = SkillMatchMode.EXACT,
 ) -> list[Skill]:
     collisions = _find_collisions(skills)
     if collisions:
@@ -436,7 +502,11 @@ def _filter_installable_skills(
 
     installable = [skill for skill in skills if skill.name not in collisions]
     if selected_names:
-        selected = set(selected_names)
+        selected = _resolve_selected_skill_names(
+            [skill.name for skill in installable],
+            patterns=selected_names,
+            match_mode=match_mode,
+        )
         return [skill for skill in installable if skill.name in selected]
     if include_all:
         return installable
@@ -765,6 +835,7 @@ def _sync(
     check: bool,
     include_all: bool,
     selected_names: list[str],
+    match_mode: SkillMatchMode,
     copy: bool,
     tool_skill: bool | None,
 ) -> None:
@@ -855,8 +926,17 @@ def _sync(
         candidate_skills,
         selected_names=selected_names,
         include_all=include_all,
+        match_mode=match_mode,
     )
-    if (
+    pattern_mode = match_mode != SkillMatchMode.EXACT and bool(selected_names)
+    if pattern_mode:
+        if selected and not yes:
+            selected = _select_skills_interactive(
+                _deduplicate_skills(selected), preselect_all=True
+            )
+        elif not selected and not yes:
+            selected = _select_skills_interactive(candidate_skills)
+    elif (
         not selected
         and not yes
         and not selected_names
@@ -944,6 +1024,23 @@ def callback(
             "--skill", "-s", help="Install a specific discovered skill by name"
         ),
     ] = None,
+    discover_glob: Annotated[
+        bool,
+        typer.Option(
+            "--discover-glob",
+            help="Treat --skill values as glob patterns matched against skill names",
+        ),
+    ] = False,
+    discover_regex: Annotated[
+        bool,
+        typer.Option(
+            "--discover-regex",
+            help=(
+                "Treat --skill values as regular expressions matched against "
+                "skill names"
+            ),
+        ),
+    ] = False,
     copy: Annotated[
         bool, typer.Option("--copy", help="Copy files instead of creating symlinks")
     ] = False,
@@ -957,12 +1054,16 @@ def callback(
 ) -> None:
     """Discover and reconcile agent skills from installed library packages."""
     if ctx.invoked_subcommand is None:
+        match_mode = _resolve_skill_match_mode(
+            discover_glob=discover_glob, discover_regex=discover_regex
+        )
         _sync(
             include_claude=include_claude,
             yes=yes,
             check=check,
             include_all=include_all,
             selected_names=selected_names or [],
+            match_mode=match_mode,
             copy=copy,
             tool_skill=tool_skill,
         )
@@ -1077,11 +1178,31 @@ def install(
             "--skill", "-s", help="Install a specific discovered skill by name"
         ),
     ] = None,
+    discover_glob: Annotated[
+        bool,
+        typer.Option(
+            "--discover-glob",
+            help="Treat --skill values as glob patterns matched against skill names",
+        ),
+    ] = False,
+    discover_regex: Annotated[
+        bool,
+        typer.Option(
+            "--discover-regex",
+            help=(
+                "Treat --skill values as regular expressions matched against "
+                "skill names"
+            ),
+        ),
+    ] = False,
     copy: Annotated[
         bool, typer.Option("--copy", help="Copy files instead of creating symlinks")
     ] = False,
 ) -> None:
     """Install skills from installed packages."""
+    match_mode = _resolve_skill_match_mode(
+        discover_glob=discover_glob, discover_regex=discover_regex
+    )
     context = _get_project_context()
     result = _scan_context(context)
     skills = _top_level_skills(
@@ -1095,8 +1216,14 @@ def install(
         skills,
         selected_names=selected_names or [],
         include_all=include_all,
+        match_mode=match_mode,
     )
-    if not selected and not yes:
+    pattern_mode = match_mode != SkillMatchMode.EXACT and bool(selected_names)
+    if selected and pattern_mode and not yes:
+        selected = _select_skills_interactive(
+            _deduplicate_skills(selected), preselect_all=True
+        )
+    elif not selected and not yes:
         selected = _select_skills_interactive(skills)
 
     if not selected:
