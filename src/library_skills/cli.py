@@ -689,12 +689,13 @@ def _install_selected(
     targets: list[InstallTarget],
     project_root: Path,
     copy: bool = False,
+    force: bool = False,
 ) -> int:
     installed_count = 0
     for target in targets:
         for skill in skills:
             try:
-                dest = install_skill(skill, target.path, copy=copy)
+                dest = install_skill(skill, target.path, copy=copy, force=force)
             except InstallError as e:
                 ui.print_skipped(skill.name, str(e), console=console)
                 continue
@@ -766,6 +767,7 @@ def _sync(
     include_all: bool,
     selected_names: list[str],
     copy: bool,
+    force: bool,
     tool_skill: bool | None,
 ) -> None:
     context = _get_project_context()
@@ -887,6 +889,7 @@ def _sync(
             targets=targets,
             project_root=context.project_root,
             copy=copy,
+            force=force,
         )
         ui.print_line(console=console)
         ui.print_summary({"installed skill targets": installed_count}, console=console)
@@ -947,6 +950,16 @@ def callback(
     copy: Annotated[
         bool, typer.Option("--copy", help="Copy files instead of creating symlinks")
     ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help=(
+                "Overwrite existing non-symlink files or directories at the "
+                "destination (useful with --copy on systems without symlink support)"
+            ),
+        ),
+    ] = False,
     tool_skill: Annotated[
         bool | None,
         typer.Option(
@@ -964,6 +977,7 @@ def callback(
             include_all=include_all,
             selected_names=selected_names or [],
             copy=copy,
+            force=force,
             tool_skill=tool_skill,
         )
 
@@ -1080,6 +1094,16 @@ def install(
     copy: Annotated[
         bool, typer.Option("--copy", help="Copy files instead of creating symlinks")
     ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help=(
+                "Overwrite existing non-symlink files or directories at the "
+                "destination (useful with --copy on systems without symlink support)"
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Install skills from installed packages."""
     context = _get_project_context()
@@ -1113,7 +1137,11 @@ def install(
         return
 
     installed_count = _install_selected(
-        skills=selected, targets=targets, project_root=context.project_root, copy=copy
+        skills=selected,
+        targets=targets,
+        project_root=context.project_root,
+        copy=copy,
+        force=force,
     )
     ui.print_line(console=console)
     ui.print_summary({"installed skill targets": installed_count}, console=console)
