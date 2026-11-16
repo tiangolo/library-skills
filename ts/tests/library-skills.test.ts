@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   readlinkSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   unlinkSync,
@@ -342,6 +343,85 @@ test("does not attribute nested site-packages skills to editable packages", () =
   expect(result.warnings).toEqual([]);
   expect(result.skills.map((skill) => skill.name)).toEqual(["fastapi"]);
   expect(result.skills[0]?.packageName).toBe("fastapi");
+});
+
+test("skips editable skills in hidden and dependency directories", () => {
+  const sitePackages = tempDir();
+  const sourceRoot = tempDir();
+  const editableSkill = writeSkill(
+    join(sourceRoot, "demo_pkg", ".agents", "skills", "editable"),
+    "editable",
+    "Editable package skill.",
+  );
+  writeSkill(
+    join(sourceRoot, "node_modules", "node-pkg", ".agents", "skills", "node-skill"),
+    "node-skill",
+    "Node skill.",
+  );
+  writeSkill(
+    join(sourceRoot, ".claude", "worktrees", "copy", "demo_pkg", ".agents", "skills", "editable"),
+    "editable",
+    "Editable package skill.",
+  );
+  writeSkill(
+    join(sourceRoot, "venv", "lib", "python3.12", "site-packages", "dep", ".agents", "skills", "dep-skill"),
+    "dep-skill",
+    "Dependency skill.",
+  );
+  const distInfo = writeDistribution({
+    sitePackages,
+    distInfoName: "editable_pkg-1.0.0.dist-info",
+    packageName: "editable-pkg",
+    version: "1.0.0",
+    records: [],
+  });
+  writeFileSync(
+    join(distInfo, "direct_url.json"),
+    JSON.stringify({ dir_info: { editable: true }, url: pathToFileURL(sourceRoot).href }),
+  );
+
+  const result = scanPythonDistributions(sitePackages);
+
+  expect(result.warnings).toEqual([]);
+  expect(result.skills.map((skill) => skill.skillDir)).toEqual([
+    realpathSync(editableSkill),
+  ]);
+});
+
+test("does not attribute symlinked site-packages skills to editable packages", () => {
+  const sourceRoot = tempDir();
+  const sitePackages = join(sourceRoot, ".venv", "lib", "python3.12", "site-packages");
+  const dependencySkill = writeSkill(
+    join(sitePackages, "fastapi", ".agents", "skills", "fastapi"),
+    "fastapi",
+    "FastAPI skill.",
+  );
+  const installed = join(sourceRoot, ".agents", "skills", "fastapi");
+  mkdirSync(installed, { recursive: true });
+  symlinkSync(join(dependencySkill, "SKILL.md"), join(installed, "SKILL.md"));
+  const editableDist = writeDistribution({
+    sitePackages,
+    distInfoName: "aaa_editable_pkg-1.0.0.dist-info",
+    packageName: "aaa-editable-pkg",
+    version: "1.0.0",
+    records: [],
+  });
+  writeFileSync(
+    join(editableDist, "direct_url.json"),
+    JSON.stringify({ dir_info: { editable: true }, url: pathToFileURL(sourceRoot).href }),
+  );
+  writeDistribution({
+    sitePackages,
+    distInfoName: "fastapi-1.0.0.dist-info",
+    packageName: "fastapi",
+    version: "1.0.0",
+    records: [`${dependencySkill}/SKILL.md`.replace(`${sitePackages}/`, "") + ",,"],
+  });
+
+  const result = scanPythonDistributions(sitePackages);
+
+  expect(result.warnings).toEqual([]);
+  expect(result.skills.map((skill) => skill.packageName)).toEqual(["fastapi"]);
 });
 
 test("scanner helpers parse CSV and normalize package names", () => {
