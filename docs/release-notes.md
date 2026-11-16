@@ -2,8 +2,22 @@
 
 ## Latest Changes
 
+### Internal
+
+* 👷 Limit the full test matrix to Python 3.15. PR [#238](https://github.com/tiangolo/library-skills/pull/238) by [@tiangolo](https://github.com/tiangolo).
+
+## 0.0.21 (2026-11-13)
+
+### Breaking Changes
+
+* 💥 Drop support for Python 3.10. PR [#235](https://github.com/tiangolo/library-skills/pull/235) by [@tiangolo](https://github.com/tiangolo).
+
+## 0.0.20 (2026-11-10)
+
 ### Upgrades
 
+* ⬆️ Add support for Python 3.15 and 3.15t. PR [#232](https://github.com/tiangolo/library-skills/pull/232) by [@tiangolo](https://github.com/tiangolo).
+* ⬆️ Use latest-known uv and upgrade GitHub Actions. PR [#228](https://github.com/tiangolo/library-skills/pull/228) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆️ Bump Typer min version to `0.26.1`. PR [#207](https://github.com/tiangolo/library-skills/pull/207) by [@YuriiMotov](https://github.com/YuriiMotov).
 
 ### Docs

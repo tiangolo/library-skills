@@ -1,14 +1,9 @@
 import fnmatch
 import json
-import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
-
-if sys.version_info >= (3, 11):  # pragma: no cover
-    import tomllib
-else:
-    import tomli as tomllib
 
 
 @dataclass(frozen=True)

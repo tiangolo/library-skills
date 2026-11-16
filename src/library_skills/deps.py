@@ -1,16 +1,11 @@
 import json
 import re
-import sys
+import tomllib
 from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
 from .scanner import _normalize_package_name
-
-if sys.version_info >= (3, 11):  # pragma: no cover
-    import tomllib
-else:
-    import tomli as tomllib
 
 
 def get_python_top_level_deps(project_root: Path) -> set[str] | None:
