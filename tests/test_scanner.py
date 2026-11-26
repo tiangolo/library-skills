@@ -269,6 +269,58 @@ def test_scan_python_distributions_does_not_claim_nested_site_packages_skills(
     assert result.skills[0].package_name == "fastapi"
 
 
+def test_scan_python_distributions_skips_editable_hidden_and_dependency_dirs(
+    tmp_path,
+):
+    site_packages = tmp_path / "site-packages"
+    source_root = tmp_path / "source"
+    skill_md = write_skill(source_root / "demo_pkg", "editable-skill")
+    write_skill(source_root / "node_modules" / "node-pkg", "node-skill")
+    write_skill(
+        source_root / ".claude" / "worktrees" / "copy" / "demo_pkg", "editable-skill"
+    )
+    write_skill(
+        source_root / "venv" / "lib" / "python3.12" / "site-packages" / "dep",
+        "dep-skill",
+    )
+    dist_info = write_dist_info(site_packages, "editable-pkg")
+    dist_info.joinpath("direct_url.json").write_text(
+        json.dumps({"url": source_root.as_uri(), "dir_info": {"editable": True}}),
+        encoding="utf-8",
+    )
+
+    result = scan_python_distributions(site_packages)
+
+    assert result.warnings == []
+    assert [skill.path for skill in result.skills] == [skill_md.resolve()]
+
+
+def test_scan_python_distributions_does_not_claim_installed_skill_symlinks(
+    tmp_path,
+):
+    source_root = tmp_path / "source"
+    site_packages = source_root / ".venv" / "lib" / "python3.12" / "site-packages"
+    dependency_skill = write_skill(site_packages / "fastapi", "fastapi")
+    installed = source_root / ".agents" / "skills" / "fastapi"
+    installed.parent.mkdir(parents=True)
+    installed.symlink_to(dependency_skill.parent, target_is_directory=True)
+    editable_dist_info = write_dist_info(site_packages, "aaa-editable-pkg")
+    editable_dist_info.joinpath("direct_url.json").write_text(
+        json.dumps({"url": source_root.as_uri(), "dir_info": {"editable": True}}),
+        encoding="utf-8",
+    )
+    write_dist_info(
+        site_packages,
+        "fastapi",
+        record_paths=[dependency_skill.relative_to(site_packages).as_posix()],
+    )
+
+    result = scan_python_distributions(site_packages)
+
+    assert result.warnings == []
+    assert [skill.package_name for skill in result.skills] == ["fastapi"]
+
+
 def test_scan_python_distributions_warns_when_site_packages_is_missing(tmp_path):
     result = scan_python_distributions(tmp_path / "missing")
 
