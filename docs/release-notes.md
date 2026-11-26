@@ -4,6 +4,7 @@
 
 ### Internal
 
+* 🔒️ Generate GH actions workflow lockfile and bump Zizmor. PR [#239](https://github.com/tiangolo/library-skills/pull/239) by [@YuriiMotov](https://github.com/YuriiMotov).
 * 👷 Limit the full test matrix to Python 3.15. PR [#238](https://github.com/tiangolo/library-skills/pull/238) by [@tiangolo](https://github.com/tiangolo).
 
 ## 0.0.21 (2026-11-13)
