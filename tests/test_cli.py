@@ -1314,6 +1314,31 @@ def test_check_exits_non_zero_for_colliding_skill_names(tmp_path, monkeypatch):
     assert result.exit_code == 1
 
 
+def test_scan_uses_virtual_env_outside_project(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    monkeypatch.chdir(project)
+    monkeypatch.delenv("UV_PROJECT_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("CONDA_PREFIX", raising=False)
+
+    outside_env = tmp_path / "hedge-managed-env"
+    site_packages = outside_env / "lib" / "python3.12" / "site-packages"
+    outside_env.mkdir(parents=True)
+    (outside_env / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
+    write_distribution_skill(
+        site_packages,
+        dist_name="outside-pkg",
+        package_dir="outside_pkg",
+        skill_name="outside-skill",
+    )
+    monkeypatch.setenv("VIRTUAL_ENV", str(outside_env))
+
+    result = runner.invoke(app, ["scan"])
+
+    assert result.exit_code == 0
+    assert "outside-skill" in result.output
+
+
 def test_scan_without_target_environment_prints_warning(tmp_path, monkeypatch):
     project = tmp_path / "project"
     project.mkdir()

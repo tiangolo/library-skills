@@ -33,7 +33,10 @@ def find_venv(cwd: Path | None = None) -> Path | None:
     Resolution order:
     1. UV_PROJECT_ENVIRONMENT env var
     2. Nearest project .venv
-    3. VIRTUAL_ENV if it appears to belong to the project/user cwd
+    3. VIRTUAL_ENV, wherever it lives on disk. This covers tools (uv, venv,
+       virtualenv, conda, pyenv-virtualenv, Hatch, etc.) that manage
+       environments outside the project tree, since skills are installed into
+       the project root while the activated environment may live elsewhere.
     4. CONDA_PREFIX env var
     """
     cwd = cwd or Path.cwd()
@@ -54,18 +57,17 @@ def find_venv(cwd: Path | None = None) -> Path | None:
         venv = _venv_from_dot_venv(workspace.root)
         if venv is not None:
             return venv
-        return None
+    else:
+        for directory in [cwd, *cwd.parents]:
+            venv = _venv_from_dot_venv(directory)
+            if venv is not None:
+                return venv
 
-    for directory in [cwd, *cwd.parents]:
-        venv = _venv_from_dot_venv(directory)
-        if venv is not None:
-            return venv
-
-    # 3. VIRTUAL_ENV, but avoid uvx/tool environments outside the project tree
+    # 3. VIRTUAL_ENV, wherever it is located
     virtual_env = os.environ.get("VIRTUAL_ENV")
     if virtual_env:
         path = Path(virtual_env)
-        if (path / "pyvenv.cfg").is_file() and _is_relative_to(path, project_root):
+        if (path / "pyvenv.cfg").is_file():
             return path
 
     # 4. CONDA_PREFIX
@@ -108,14 +110,6 @@ def find_node_modules(cwd: Path | None = None) -> Path | None:
         if node_modules.is_dir():
             return node_modules
     return None
-
-
-def _is_relative_to(path: Path, parent: Path) -> bool:
-    try:
-        path.resolve().relative_to(parent.resolve())
-    except ValueError:
-        return False
-    return True
 
 
 def _venv_from_dot_venv(project_root: Path) -> Path | None:
