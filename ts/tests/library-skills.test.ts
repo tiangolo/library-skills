@@ -1029,6 +1029,39 @@ describe("installer", () => {
     expect(installerTesting.isDirectory(join(root, "missing"))).toBe(false);
   });
 
+  test("force overwrites non-symlink files/directories but not the skill source itself", () => {
+    const root = tempDir();
+    const source = writeSkill(join(root, "source", "agent"), "agent", "Agent skill.");
+    const targetDir = join(root, ".agents", "skills");
+    const skill = makeSkill({ name: "agent", skillDir: source });
+
+    mkdirSync(targetDir, { recursive: true });
+    const staleDir = join(targetDir, "agent");
+    mkdirSync(staleDir, { recursive: true });
+    writeFileSync(join(staleDir, "stale.txt"), "stale");
+    expect(() => installSkill(skill, targetDir, { copy: true })).toThrow(
+      "Cannot overwrite non-symlink directory",
+    );
+
+    const installed = installSkill(skill, targetDir, { copy: true, force: true });
+    expect(readFileSync(join(installed, "SKILL.md"), "utf8")).toContain("Agent skill.");
+    expect(existsSync(join(installed, "stale.txt"))).toBe(false);
+
+    rmSync(installed, { recursive: true, force: true });
+    writeFileSync(installed, "not managed");
+    const reinstalled = installSkill(skill, targetDir, { copy: true, force: true });
+    expect(lstatSync(reinstalled).isDirectory()).toBe(true);
+
+    // A skill whose source directory *is* the destination must not be deleted.
+    const selfTargetDir = join(root, "self-target");
+    const selfSkillDir = join(selfTargetDir, "self-skill");
+    writeSkill(selfSkillDir, "self-skill", "Self skill.");
+    const selfSkill = makeSkill({ name: "self-skill", skillDir: selfSkillDir });
+    const untouched = installSkill(selfSkill, selfTargetDir, { copy: true, force: true });
+    expect(untouched).toBe(selfSkillDir);
+    expect(readFileSync(join(selfSkillDir, "SKILL.md"), "utf8")).toContain("Self skill.");
+  });
+
   test("copies, updates, and protects the Library Skills tool skill", () => {
     const root = tempDir();
     const targetDir = join(root, ".agents", "skills");

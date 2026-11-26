@@ -1078,6 +1078,32 @@ def test_install_all_copy_mode_installs_to_agents_and_claude(tmp_path, monkeypat
     assert not claude_skill.is_symlink()
 
 
+def test_install_copy_force_overwrites_blocking_directory(tmp_path, monkeypatch):
+    project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
+    site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
+    write_distribution_skill(
+        site_packages,
+        dist_name="demo-pkg",
+        package_dir="demo_pkg",
+        skill_name="demo-skill",
+    )
+    blocking = project / ".agents" / "skills" / "demo-skill"
+    blocking.mkdir(parents=True)
+    (blocking / "stale.txt").write_text("stale", encoding="utf-8")
+    monkeypatch.chdir(project)
+
+    blocked = runner.invoke(app, ["install", "--all", "--yes", "--copy"])
+    assert blocked.exit_code == 0
+    assert (blocking / "stale.txt").exists()
+
+    result = runner.invoke(app, ["install", "--all", "--yes", "--copy", "--force"])
+
+    assert result.exit_code == 0
+    assert blocking.is_dir()
+    assert (blocking / "SKILL.md").is_file()
+    assert not (blocking / "stale.txt").exists()
+
+
 def test_install_interactive_can_choose_claude_only(tmp_path, monkeypatch):
     project = write_project(tmp_path, dependencies=["demo-pkg>=1"])
     site_packages = project / ".venv" / "lib" / "python3.12" / "site-packages"
@@ -1753,6 +1779,26 @@ def test_install_selected_continues_after_install_error(tmp_path):
         cli._install_selected(skills=[skill], targets=[target], project_root=tmp_path)
         == 0
     )
+
+
+def test_install_selected_force_overwrites_blocking_directory(tmp_path):
+    skill = make_cli_skill(tmp_path)
+    target = cli.InstallTarget("universal", tmp_path / ".agents" / "skills")
+    blocking = target.path / skill.name
+    blocking.mkdir(parents=True)
+    (blocking / "stale.txt").write_text("stale", encoding="utf-8")
+
+    installed_count = cli._install_selected(
+        skills=[skill],
+        targets=[target],
+        project_root=tmp_path,
+        copy=True,
+        force=True,
+    )
+
+    assert installed_count == 1
+    assert (blocking / "SKILL.md").is_file()
+    assert not (blocking / "stale.txt").exists()
 
 
 def test_display_path_prefers_project_relative_paths(tmp_path):
